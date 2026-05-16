@@ -21,27 +21,6 @@ No sign-up or installation is required.
 
 If you do not reach the training objective after a few attempts, review the [winning strategy walkthrough](winning_strategy.gif) and compare it with your own decisions.
 
-## GitHub Repository Setup
-
-Suggested repository description:
-
-> Browser-based WFM training simulator for lean contact center teams.
-
-Suggested topics:
-
-```text
-contact-center
-wfm
-workforce-management
-service-level
-erlang-c
-erlang-x
-simulation
-training
-operations
-vanilla-javascript
-```
-
 ## What It Teaches
 
 Small teams behave differently from large floors. When each agent represents a visible share of capacity, ordinary random variation can look like a signal worth acting on.
