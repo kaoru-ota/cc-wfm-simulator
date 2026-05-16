@@ -1,0 +1,2831 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-8YFZVHTPSH"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-8YFZVHTPSH');
+</script>
+
+<title>WFM Training Simulator</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* ============================================================
+   Briefing overlay (Start screen)
+   ============================================================ */
+#briefing-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  background: rgba(0,0,0,0.55);
+  backdrop-filter: blur(4px);
+}
+#briefing-overlay.hidden { display: none; }
+#briefing-card {
+  width: min(720px, 96vw);
+  max-height: min(720px, 84vh);
+  overflow: auto;
+  border: 1px solid var(--line-md);
+  border-radius: 16px;
+  background: rgba(12, 20, 27, 0.92);
+  box-shadow: 0 28px 90px rgba(0,0,0,0.60), inset 0 1px 0 rgba(255,255,255,0.04);
+  padding: 18px 18px 16px;
+}
+#briefing-title {
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  color: var(--header-ink);
+}
+#briefing-sub {
+  margin-top: 6px;
+  font-size: 10px;
+  letter-spacing: 0.10em;
+  color: var(--ink-dim);
+  text-transform: uppercase;
+}
+#briefing-body { margin-top: 12px; font-size: 11px; line-height: 1.6; color: var(--ink); }
+#briefing-body strong { color: var(--header-ink); }
+#briefing-body ul { margin: 8px 0 0 18px; }
+#briefing-body li { margin: 6px 0; }
+#briefing-actions {
+  margin-top: 14px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: flex-end;
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+#btn-start-shift {
+  border-color: rgba(0,255,65,0.35);
+  color: #00ff41;
+  background: rgba(0,255,65,0.08);
+}
+#btn-start-shift:hover {
+  border-color: rgba(0,255,65,0.70);
+  background: rgba(0,255,65,0.12);
+  color: #e8f2f6;
+}
+#btn-hints { border-color: rgba(126,168,255,0.35); color: var(--cyan); background: rgba(126,168,255,0.10); }
+#btn-hints:hover { border-color: rgba(126,168,255,0.70); background: rgba(126,168,255,0.14); color: #e8f2f6; }
+#briefing-hints { display: none; margin-top: 8px; padding-top: 10px; border-top: 1px dashed rgba(100,135,155,0.28); }
+#briefing-hints.show { display: block; }
+
+:root {
+  --bg:           #f4f7fb;
+  --surface:      rgba(255, 255, 255, 0.94);
+  --surface2:     rgba(248, 250, 252, 0.98);
+  --ink:          #243447;
+  --ink-dim:      rgba(71, 85, 105, 0.70);
+  --fg:           #0f766e;
+  --cyan:         #2563eb;
+  --yellow:       #b45309;
+  --orange:       #c2410c;
+  --red:          #dc2626;
+  --line:         rgba(148, 163, 184, 0.22);
+  --line-md:      rgba(148, 163, 184, 0.34);
+  --header-ink:   #0f172a;
+}
+
+body {
+  background:
+    radial-gradient(circle at top left, rgba(37,99,235,0.08), transparent 28%),
+    linear-gradient(160deg, #f8fbff 0%, #eef3f9 100%);
+  color: var(--ink);
+  font-family: "Segoe UI", "Hiragino Sans", sans-serif;
+  font-size: 12px;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  user-select: none;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body::after {
+  content: "";
+  position: fixed; inset: 0;
+  background: radial-gradient(ellipse at center, transparent 58%, rgba(148,163,184,0.14) 100%);
+  pointer-events: none;
+  z-index: 9998;
+}
+
+.g-green  { color: var(--fg); }
+.g-yellow { color: var(--yellow); }
+.g-red    { color: var(--red); }
+.g-cyan   { color: var(--cyan); }
+.g-orange { color: var(--orange); }
+.g-white  { color: #0f172a; }
+
+#game {
+  width: 960px;
+  height: 98vh;
+  max-height: 860px;
+  min-height: 620px;
+  border: 1px solid var(--line-md);
+  border-radius: 18px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: rgba(255,255,255,0.96);
+  box-shadow: 0 24px 70px rgba(15,23,42,0.12), inset 0 1px 0 rgba(255,255,255,0.85);
+}
+
+#header {
+  flex-shrink: 0;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  padding: 0 18px;
+  gap: 10px;
+  border-bottom: 1px solid var(--line);
+  background: rgba(255,255,255,0.92);
+  position: relative;
+}
+
+#header-phase {
+  display: none !important;
+}
+#header-phase #forecast-phase-cur { font-size: 13px; font-weight: 700; letter-spacing: 0.10em; }
+#header-phase #header-phase-next { display: inline-flex; align-items: baseline; gap: 5px; font-size: 9px; color: var(--header-ink); opacity: 0.75; letter-spacing: 0.08em; }
+#header-phase .ph-tag { font-size: 8px; letter-spacing: 0.22em; color: var(--ink-dim); text-transform: uppercase; }
+
+#title {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  white-space: nowrap;
+  color: var(--header-ink);
+}
+
+#alert-bar {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  line-height: 1.35;
+  min-height: 0;
+}
+
+#header-right {
+  display: flex;
+  margin-left: auto;
+  justify-content: flex-end;
+  white-space: nowrap;
+  font-size: 11px;
+  color: var(--header-ink);
+}
+
+#main { display: flex; flex: 1; min-height: 0; flex-direction: row-reverse; }
+
+#agent-panel {
+  width: 348px;
+  flex-shrink: 0;
+  border-left: 1px solid var(--line);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow: hidden;
+  background: rgba(248,250,252,0.78);
+}
+
+.panel-title {
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  color: var(--ink-dim);
+  text-transform: uppercase;
+}
+
+#agent-summary { font-size: 10px; display: flex; gap: 10px; flex-wrap: wrap; }
+#agent-meta { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+#agent-fatigue { display: flex; align-items: center; gap: 6px; font-size: 10px; white-space: nowrap; }
+#agent-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; flex: 1; align-content: start; overflow: hidden; }
+
+#agent-answer-panel {
+  flex-shrink: 0;
+  min-height: 84px;
+  padding-top: 6px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+#agent-action-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 9px; }
+#agent-change-row { display: flex; align-items: center; gap: 6px; margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--line); }
+#agent-change-row .change-label { font-size: 9px; letter-spacing: 0.18em; color: var(--ink-dim); text-transform: uppercase; flex-shrink: 0; }
+#extra-status { color: var(--ink-dim); white-space: nowrap; }
+.agent-card {
+  border: 1px solid var(--line);
+  background: rgba(255,255,255,0.92);
+  border-radius: 9px;
+  padding: 6px 4px;
+  text-align: center;
+  font-size: 8px;
+  height: 58px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.agent-card.idle    { border-color: rgba(100,135,155,0.08); color: #3d5462; }
+.agent-card.ringing { border-color: rgba(219,169,78,0.30);  color: var(--yellow); }
+.agent-card.busy    { border-color: rgba(201,127,74,0.28);  color: var(--orange); }
+.agent-card.wrap    { border-color: rgba(109,191,194,0.28); color: var(--fg); }
+.agent-card.lunch   { border-color: rgba(126,168,255,0.26); color: var(--cyan); }
+.agent-card.break   { border-color: rgba(126,168,255,0.26); color: var(--cyan); }
+
+.a-id     { font-size: 7px; color: var(--ink-dim); letter-spacing: 0.08em; }
+.a-status { font-size: 9px; font-weight: 700; line-height: 1; letter-spacing: 0.08em; }
+.a-bar    { width: 100%; height: 3px; background: rgba(100,135,155,0.12); border-radius: 99px; overflow: hidden; }
+.a-fill   { height: 100%; border-radius: 2px; transition: width 0.2s; }
+.agent-card.busy .a-fill    { background: var(--orange); }
+.agent-card.wrap .a-fill    { background: var(--fg); }
+.agent-card.ringing .a-fill { background: var(--yellow); width: 100% !important; }
+.agent-card.lunch .a-fill   { background: var(--cyan); }
+.agent-card.break .a-fill   { background: var(--cyan); }
+.a-timer  { font-size: 7px; color: var(--ink-dim); }
+
+#right-panel { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
+
+#queue-panel { flex-shrink: 0; padding: 6px 14px; border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 4px; }
+#queue-header { display: flex; justify-content: space-between; align-items: center; }
+#queue-calls { height: 28px; display: flex; flex-wrap: wrap; gap: 3px; overflow: hidden; align-content: flex-start; }
+
+.call-icon  { display: flex; flex-direction: column; align-items: center; width: 22px; }
+.call-phone { font-size: 10px; line-height: 1.1; }
+.call-pbar  { width: 20px; height: 3px; background: rgba(100,135,155,0.12); border-radius: 2px; overflow: hidden; }
+.call-pfill { height: 100%; border-radius: 2px; }
+
+#metrics-panel {
+  flex-shrink: 0;
+  padding: 8px 14px 10px;
+  display: grid;
+  grid-template-columns: 1.08fr 0.92fr;
+  grid-template-areas: "kpi actual";
+  gap: 10px 18px;
+  border-bottom: 1px solid var(--line);
+  align-items: start;
+}
+
+.metrics-col { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.metrics-col + .metrics-col { border-left: 1px solid var(--line); padding-left: 14px; }
+#kpi-block    { grid-area: kpi; }
+#actual-block { grid-area: actual; }
+
+#outlook-block { flex: 0 1 auto; min-height: 0; height: 195px; max-height: 225px; padding: 6px 14px 8px; border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 4px; }
+
+.metrics-head { font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-dim); }
+.metric-stack, .stat-stack { display: flex; flex-direction: column; gap: 8px; }
+.metric-row, .stat-row { display: flex; align-items: center; gap: 6px; font-size: 10px; line-height: 1.3; }
+.metric-row { display: grid; grid-template-columns: 68px 96px 44px 92px; gap: 8px; align-items: center; }
+.m-label, .s-label, .cond-label { font-size: 9px; color: var(--ink-dim); flex-shrink: 0; }
+.m-label { width: auto; }
+.s-label { width: auto; }
+
+.m-bar {
+  position: relative;
+  width: 96px;
+  min-width: 96px;
+  height: 8px;
+  background: rgba(100,135,155,0.28);
+  border-radius: 99px;
+  overflow: hidden;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.10);
+}
+
+.m-fill   { display: block; height: 100%; min-width: 2px; border-radius: 99px; transition: width 0.3s, background 0.3s; box-shadow: 0 0 8px currentColor; }
+.m-target { position: absolute; top: 0; bottom: 0; width: 1px; background: rgba(255,255,255,0.35); }
+.m-val    { font-weight: 600; font-size: 10px; width: 44px; text-align: right; }
+.m-note   { font-weight: 600; font-size: 9px; letter-spacing: 0.06em; text-transform: uppercase; }
+.s-val    { font-weight: 600; font-size: 10px; }
+.stat-row { justify-content: space-between; }
+
+#adjust-timer { font-weight: 700; white-space: nowrap; }
+
+#outlook-head { padding: 0 0 2px; display: flex; align-items: center; gap: 12px; }
+#outlook-legend { display: flex; justify-content: center; gap: 14px; font-size: 10px; white-space: nowrap; margin-top: 2px; padding: 2px 0 0; color: var(--ink-dim); }
+.section-title { font-size: 9px; letter-spacing: 0.16em; color: var(--ink-dim); text-transform: uppercase; }
+#wave-label { font-size: 10px; font-weight: 600; white-space: nowrap; }
+#forecast-panel { flex: 1; min-height: 60px; padding: 0; display: flex; flex-direction: column; overflow: hidden; }
+#forecast-chart { flex: 1; width: 100%; min-height: 56px; display: block; }
+#forecast-caption { flex-shrink: 0; margin-top: 4px; font-size: 9px; display: flex; justify-content: space-between; gap: 8px; }
+
+#result-panel {
+  flex-shrink: 0;
+  height: 87px;
+  max-height: 87px;
+  margin: 0;
+  padding: 8px 14px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  overflow: hidden;
+  background: rgba(248,250,252,0.82);
+}
+
+#result-title    { display: block; font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-dim); margin-bottom: 2px; }
+#result-body     { font-size: 9px; line-height: 1.45; overflow: hidden; }
+#result-model    { font-size: 9px; line-height: 1.45; margin-top: 2px; }
+#result-accuracy { font-size: 9px; line-height: 1.45; display: none; }
+
+#phase-table { margin-top: 6px; border-top: 1px solid var(--line); padding-top: 5px; display: flex; flex-direction: column; gap: 1px; }
+.pt-row { display: grid; grid-template-columns: 92px 30px 30px 30px 36px 34px 38px; font-size: 8px; line-height: 1.45; font-family: "Consolas", "Courier New", monospace; white-space: nowrap; gap: 2px; align-items: center; }
+.pt-head { color: var(--ink-dim); margin-bottom: 1px; }
+
+#controls {
+  flex-shrink: 0;
+  height: 38px;
+  border-top: 1px solid var(--line);
+  padding: 0 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  gap: 12px;
+  background: rgba(255,255,255,0.94);
+  overflow: hidden;
+}
+
+.ctrl-group { display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
+
+.ctrl-label { font-size: 8px; color: var(--ink-dim); letter-spacing: 0.08em; white-space: nowrap; flex-shrink: 0; }
+
+.ctrl-btn {
+  font-family: "Segoe UI", sans-serif;
+  font-size: 9px;
+  font-weight: 600;
+  background: rgba(255,255,255,0.92);
+  border: 1px solid var(--line-md);
+  color: var(--ink);
+  cursor: pointer;
+  padding: 3px 8px;
+  line-height: 1.3;
+  transition: border-color 0.12s, color 0.12s, background 0.12s;
+  border-radius: 99px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  flex-shrink: 0;
+  white-space: nowrap;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+#btn-minus, #btn-plus { min-width: 68px; text-align: center; }
+.ctrl-btn:hover { border-color: rgba(37,99,235,0.35); color: var(--header-ink); background: rgba(239,246,255,0.96); }
+.ctrl-btn.speed-active { border-color: var(--cyan); color: var(--cyan); background: rgba(24,80,120,0.14); }
+.ctrl-btn.model-active { border-color: var(--yellow); color: var(--yellow); background: rgba(120,85,18,0.12); }
+.ctrl-btn.diff-active { border-color: var(--orange); color: var(--orange); background: rgba(201,127,74,0.14); }
+.ctrl-btn.pause-btn { border-color: rgba(109,191,194,0.38); color: var(--fg); }
+.ctrl-btn.reset-btn { border-color: rgba(217,95,95,0.32); color: var(--red); }
+.ctrl-btn.reset-btn:hover { background: rgba(160,60,60,0.12); }
+.ctrl-btn:disabled { opacity: 0.25; cursor: not-allowed; pointer-events: none; }
+
+#speed-slider {
+  -webkit-appearance: none; appearance: none;
+  width: 130px; height: 4px;
+  background: rgba(100,135,155,0.25); border-radius: 99px;
+  outline: none; cursor: pointer; flex-shrink: 0;
+}
+#speed-slider::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 12px; height: 12px; border-radius: 50%;
+  background: var(--cyan); cursor: pointer;
+  box-shadow: 0 0 6px var(--cyan);
+}
+#speed-slider::-moz-range-thumb {
+  width: 12px; height: 12px; border-radius: 50%;
+  background: var(--cyan); cursor: pointer; border: none;
+  box-shadow: 0 0 6px var(--cyan);
+}
+#speed-value { font-size: 10px; font-weight: 700; color: var(--cyan); min-width: 44px; text-align: left; white-space: nowrap; letter-spacing: 0.04em; }
+
+#title-phase {
+  font-size: 10px; font-weight: 600; letter-spacing: 0.10em;
+  color: var(--cyan); white-space: nowrap;
+}
+
+#score-display { margin-left: auto; font-size: 11px; font-weight: 700; white-space: nowrap; flex-shrink: 0; }
+
+@keyframes crisisFlash {
+  0%, 100% { border-color: var(--line-md); }
+  50%       { border-color: rgba(217,95,95,0.65); box-shadow: 0 0 0 1px rgba(217,95,95,0.10); }
+}
+#game.crisis { animation: crisisFlash 0.55s ease-in-out infinite; }
+
+body.occ-danger::after { background: radial-gradient(ellipse at center, transparent 55%, rgba(220,38,38,0.12) 100%); }
+
+#phase-flash { position: fixed; inset: 0; pointer-events: none; z-index: 9997; opacity: 0; background: rgba(109,191,194,0.07); transition: opacity 0.07s; }
+#phase-flash.active { opacity: 1; }
+
+body.recovery-flash::after { background: radial-gradient(ellipse at center, rgba(0,255,65,0.22) 0%, rgba(0,255,65,0.06) 40%, transparent 75%); transition: background 0.3s; }
+@keyframes recoveryPulse { 0%, 100% { box-shadow: 0 20px 64px rgba(0,0,0,0.50), inset 0 0 0 2px rgba(0,255,65,0.0); } 50% { box-shadow: 0 20px 64px rgba(0,0,0,0.50), inset 0 0 0 2px rgba(0,255,65,0.55); } }
+#game.recovery { animation: recoveryPulse 0.9s ease-out 1; }
+
+/* ============================================================
+   Modern SaaS refinement layer
+   ============================================================ */
+#briefing-overlay {
+  background: rgba(15, 23, 42, 0.28);
+  backdrop-filter: blur(8px);
+}
+#briefing-card {
+  background: rgba(255,255,255,0.98);
+  box-shadow: 0 28px 80px rgba(15,23,42,0.18);
+}
+#briefing-sub,
+.panel-title,
+.metrics-head,
+.section-title,
+#result-title,
+.ctrl-label {
+  letter-spacing: 0.12em;
+}
+#btn-start-shift {
+  border-color: rgba(37,99,235,0.32);
+  color: #ffffff;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+}
+#btn-start-shift:hover {
+  border-color: rgba(37,99,235,0.55);
+  background: linear-gradient(135deg, #1d4ed8, #1e40af);
+  color: #ffffff;
+}
+#btn-hints {
+  border-color: rgba(37,99,235,0.22);
+  color: var(--cyan);
+  background: rgba(239,246,255,0.96);
+}
+#btn-hints:hover {
+  border-color: rgba(37,99,235,0.36);
+  background: rgba(219,234,254,0.96);
+  color: #1d4ed8;
+}
+#title { letter-spacing: 0.08em; }
+.m-bar, .call-pbar, .a-bar { background: rgba(148,163,184,0.22); }
+#forecast-chart { border-radius: 12px; }
+
+/* ============================================================
+   iPhone / small-device landscape layout (height <= 500px)
+   ============================================================ */
+@media (max-height: 500px) and (orientation: landscape) {
+  html, body {
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+  }
+  body {
+    align-items: flex-start;
+    justify-content: flex-start;
+    padding: 0;
+    margin: 0;
+  }
+  #game {
+    width: 100vw;
+    height: 100dvh;
+    max-height: 100dvh;
+    min-height: 0;
+    border-radius: 0;
+    border: none;
+    box-shadow: none;
+  }
+  #main { min-height: 0; }
+  #right-panel { min-height: 0; overflow: hidden; }
+
+  /* Header */
+  #header { height: 30px; padding: 0 10px; gap: 6px; }
+  #title { font-size: 11px; letter-spacing: 0.14em; }
+  #header-phase { gap: 8px; }
+  #header-phase #forecast-phase-cur { font-size: 10px; }
+  #header-phase #header-phase-next { font-size: 8px; gap: 3px; }
+  #header-phase .ph-tag { font-size: 7px; }
+  #header-right { font-size: 9px; }
+
+  /* Agent panel */
+  #agent-panel { width: 244px; padding: 8px; gap: 6px; }
+  #agent-meta { gap: 6px; }
+  #agent-summary { font-size: 8px; gap: 6px; }
+  #agent-grid { grid-template-columns: repeat(5, 1fr) !important; gap: 4px; }
+  .agent-card { height: 52px; padding: 4px 3px; border-radius: 6px; gap: 1px; overflow: hidden; justify-content: center; }
+  .agent-card .a-bar { height: 2px; }
+  .a-id { font-size: 7px; line-height: 1; }
+  .a-status { font-size: 8px; line-height: 1.1; }
+  .a-timer { font-size: 7px; line-height: 1; }
+  #agent-answer-panel { min-height: 58px; padding-top: 4px; }
+  #agent-change-row { gap: 4px; padding-top: 4px; margin-top: 4px; }
+  #agent-change-row .change-label { font-size: 7px; letter-spacing: 0.10em; }
+  #agent-delta-display { font-size: 12px !important; min-width: 28px !important; }
+  #agent-count-row { margin-top: 4px !important; padding-top: 4px !important; gap: 6px !important; }
+  #agent-count-row span:first-child { font-size: 7px !important; letter-spacing: 0.10em !important; }
+  #agent-count-display { font-size: 13px !important; }
+
+  /* Outlook */
+  #outlook-block { height: 136px; min-height: 0; max-height: 140px; padding: 6px 10px 4px; overflow: hidden; gap: 3px; }
+  #outlook-head { padding: 0; }
+  #forecast-panel { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
+  #outlook-legend { font-size: 8px; gap: 8px; margin-top: 0; padding: 0; }
+  .section-title { font-size: 8px; }
+  #forecast-chart { flex: 1; min-height: 80px; height: 100%; max-height: 110px; width: 100%; }
+
+  /* Queue */
+  #queue-panel { padding: 3px 10px; gap: 2px; }
+  #queue-calls { height: 22px; gap: 2px; }
+  .call-icon { width: 18px; }
+  .call-phone { font-size: 9px; }
+  .call-pbar { width: 16px; }
+
+  /* Metrics */
+  #metrics-panel { padding: 6px 10px 8px; gap: 8px 14px; grid-template-columns: 1fr 1fr; overflow: hidden; }
+  #kpi-block, #actual-block { min-width: 0; overflow: hidden; }
+  #phase-table { display: none !important; }
+  .metrics-col + .metrics-col { padding-left: 8px; }
+  .metrics-head { font-size: 8px; }
+  .metric-stack, .stat-stack { gap: 6px; }
+  .metric-row { grid-template-columns: 52px 72px 38px 60px; gap: 5px; font-size: 9px; }
+  .m-bar { width: 72px; min-width: 72px; height: 6px; }
+  .m-label, .s-label { font-size: 8px; }
+  .m-val, .s-val { font-size: 9px; }
+  .m-note { font-size: 7px; }
+  .stat-row { font-size: 9px; }
+  .pt-row { grid-template-columns: 76px 24px 20px 24px 26px 26px 28px; font-size: 7px; gap: 3px; padding: 1px 0; overflow: hidden; }
+  .pt-row > span { overflow: hidden; text-overflow: ellipsis; }
+  .pt-head { font-size: 7px; }
+  #phase-table { margin-top: 4px; padding-top: 4px; gap: 1px; overflow: hidden; }
+
+  /* System comment */
+  #result-panel { height: 60px; max-height: 60px; padding: 4px 10px; gap: 2px; }
+  #result-title { font-size: 8px; margin-bottom: 1px; }
+  #result-body { font-size: 8px; line-height: 1.35; }
+  #alert-bar { font-size: 9px; }
+
+  /* Controls */
+  #controls { height: 28px; padding: 0 8px; gap: 6px; }
+  .ctrl-label { font-size: 7px; }
+  .ctrl-btn { font-size: 8px; padding: 2px 6px; }
+  #speed-slider { width: 80px; }
+  #speed-value { font-size: 9px; min-width: 36px; }
+}
+
+/* Extra-short viewports (iPhone SE landscape etc., height <= 380px) */
+@media (max-height: 380px) and (orientation: landscape) {
+  #agent-panel { width: 216px; }
+  .agent-card { height: 42px; }
+  #outlook-block { height: 112px; max-height: 118px; }
+  #forecast-chart { min-height: 66px; max-height: 88px; }
+  #result-panel { height: 50px; max-height: 50px; }
+  #header { height: 26px; }
+  #title { font-size: 10px; }
+  .pt-row { grid-template-columns: 70px 22px 20px 22px 24px 24px 26px; gap: 2px; }
+}
+
+/* ============================================================
+   iPhone / small-device portrait layout (width <= 600px)
+   Stack order: TITLE / FORECAST / QUEUE / AGENTS / KPI / SYSTEM COMMENT / ACTUAL / CONTROLS
+   ============================================================ */
+@media (orientation: portrait) and (max-width: 600px) {
+  html, body {
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+  }
+  body {
+    align-items: flex-start;
+    justify-content: flex-start;
+    padding: 0;
+    margin: 0;
+  }
+  #game {
+    width: 100vw;
+    height: 100dvh;
+    max-height: 100dvh;
+    min-height: 0;
+    border-radius: 0;
+    border: none;
+    box-shadow: none;
+  }
+
+  /* Header (TITLE) */
+  #header { height: 40px; padding: 0 12px; gap: 6px; }
+  #title { font-size: 12px; letter-spacing: 0.16em; }
+  #header-phase { gap: 8px; }
+  #header-phase #forecast-phase-cur { font-size: 11px; }
+  #header-phase #header-phase-next { font-size: 8px; gap: 3px; }
+  #header-phase .ph-tag { font-size: 7px; }
+  #header-right { font-size: 10px; }
+
+  /* Main: stack vertically; flatten right-panel + metrics-panel so children join #main directly.
+     This lets us reorder KPI / SYSTEM COMMENT / ACTUAL independently. */
+  #main {
+    flex-direction: column;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
+  #right-panel { display: contents; }
+  #metrics-panel { display: contents; }
+
+  /* Section order: OUTLOOK=1 / QUEUE=2 / AGENTS=3 / KPI=4 / SYSTEM COMMENT=5 / ACTUAL=6 */
+  /* FORECAST: match chart height to the SVG viewBox (560:138) ratio and strip padding between chart and legend. Block height is auto. */
+  #outlook-block {
+    order: 1;
+    flex: 0 0 auto;
+    height: auto;
+    min-height: 0;
+    max-height: none;
+    padding: 6px 12px 6px;
+    gap: 2px;
+  }
+  #outlook-head { padding: 0; margin-bottom: 0; }
+  #forecast-panel { flex: 0 0 auto; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 0; }
+  #forecast-chart {
+    flex: 0 0 auto;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 560 / 138;
+    min-height: 0;
+    max-height: none;
+    display: block;
+  }
+  #outlook-legend { font-size: 9px; gap: 10px; margin-top: 0; padding: 1px 0 0; line-height: 1.1; }
+  .section-title { font-size: 9px; }
+
+  /* QUEUE: compressed to less than half height */
+  #queue-panel {
+    order: 2;
+    flex: 0 0 auto;
+    padding: 2px 12px 3px;
+    gap: 1px;
+    border-bottom: 1px solid var(--line);
+  }
+  #queue-panel .panel-title { font-size: 8px; letter-spacing: 0.14em; }
+  #queue-calls { height: 14px; gap: 2px; }
+  .call-icon { width: 14px; }
+  .call-phone { font-size: 8px; line-height: 1; }
+  .call-pbar { width: 12px; height: 2px; }
+
+  /* AGENTS: further compacted (20px height, 5 columns, tighter spacing) */
+  #agent-panel {
+    order: 3;
+    width: 100%;
+    flex: 0 0 auto;
+    min-height: 0;
+    border-left: none;
+    border-top: 1px solid var(--line);
+    padding: 4px 10px 6px;
+    gap: 3px;
+  }
+  #agent-meta { gap: 6px; }
+  #agent-meta > .panel-title { font-size: 8px; letter-spacing: 0.14em; }
+  #agent-fatigue { font-size: 9px; gap: 3px; white-space: nowrap; }
+  #agent-fatigue .panel-title { font-size: 7px; letter-spacing: 0.04em; }
+  #agent-fatigue #fatigue-header { font-size: 9px !important; letter-spacing: 0.02em; text-shadow: none !important; }
+  #agent-summary { font-size: 8px; gap: 6px; flex-wrap: wrap; line-height: 1.2; }
+  #agent-grid {
+    grid-template-columns: repeat(5, 1fr) !important;
+    gap: 2px;
+    flex: 0 0 auto;
+  }
+  .agent-card {
+    height: 20px;
+    padding: 1px 3px;
+    border-radius: 3px;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 2px;
+    overflow: hidden;
+  }
+  .agent-card .a-bar { display: none; }
+  .a-id { font-size: 6px; line-height: 1; letter-spacing: 0.02em; flex: 0 0 auto; }
+  .a-status { font-size: 7px; line-height: 1; font-weight: 700; flex: 1; text-align: center; }
+  .a-timer { font-size: 6px; line-height: 1; flex: 0 0 auto; min-width: 18px; text-align: right; }
+  #agent-answer-panel { min-height: 0; padding-top: 3px; }
+  #agent-change-row { gap: 5px; padding-top: 4px; margin-top: 4px; }
+  #agent-change-row .change-label { font-size: 8px; letter-spacing: 0.12em; }
+  #agent-delta-display { font-size: 13px !important; min-width: 30px !important; }
+  #agent-count-row { margin-top: 4px !important; padding-top: 4px !important; gap: 8px !important; }
+  #agent-count-row span:first-child { font-size: 8px !important; letter-spacing: 0.12em !important; }
+  #agent-count-display { font-size: 14px !important; }
+
+  /* KPI (order 4) — metrics-panel is flattened via display:contents, so styles apply directly to kpi-block/actual-block */
+  #kpi-block {
+    order: 4;
+    flex: 0 0 auto;
+    padding: 8px 12px;
+    border-top: 1px solid var(--line);
+    min-width: 0;
+  }
+  #phase-table { display: none !important; }
+
+  /* SYSTEM COMMENT (order 5) — placed above ACTUAL */
+  #result-panel {
+    order: 5;
+    flex: 0 0 auto;
+    height: auto;
+    min-height: 70px;
+    max-height: none;
+    padding: 6px 12px 8px;
+    border-top: 1px solid var(--line);
+    gap: 3px;
+  }
+  #result-title { font-size: 9px; margin-bottom: 2px; }
+  #result-body { font-size: 9px; line-height: 1.4; }
+  #alert-bar { font-size: 10px; }
+
+  /* ACTUAL (order 6) */
+  #actual-block {
+    order: 6;
+    flex: 0 0 auto;
+    padding: 8px 12px 12px;
+    border-top: 1px solid var(--line);
+    min-width: 0;
+  }
+  .metrics-col + .metrics-col {
+    border-left: none;
+    padding-left: 0;
+  }
+  .metrics-head { font-size: 9px; }
+  .metric-stack, .stat-stack { gap: 7px; }
+  .metric-row { grid-template-columns: 72px 1fr 46px 80px; gap: 8px; font-size: 10px; align-items: center; }
+  .m-bar { width: 100%; min-width: 0; height: 7px; }
+  .m-label, .s-label { font-size: 9px; }
+  .m-val, .s-val { font-size: 10px; }
+  .m-note { font-size: 8px; }
+  .stat-row { font-size: 10px; }
+
+  /* Controls footer: in iPhone portrait, hide #controls (MODEL/SPEED/PAUSE) entirely and pin the CHANGE/APPLY bar as the footer */
+  #controls {
+    display: none !important;
+  }
+
+  /* CHANGE / APPLY bar — pinned to the very bottom as the new footer */
+  #agent-change-row {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 48px;
+    margin-top: 0;
+    padding: 6px 12px calc(6px + env(safe-area-inset-bottom)) 12px;
+    border-top: 1px solid var(--line);
+    background: rgba(9,14,19,0.96);
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    z-index: 20;
+  }
+  #agent-change-row .change-label {
+    font-size: 9px;
+    letter-spacing: 0.14em;
+    flex-shrink: 0;
+  }
+  #agent-change-row #btn-delta-down,
+  #agent-change-row #btn-delta-up {
+    padding: 7px 14px !important;
+    min-width: 44px !important;
+    font-size: 13px !important;
+  }
+  #agent-change-row #agent-delta-display {
+    font-size: 16px !important;
+    min-width: 34px !important;
+  }
+  #agent-change-row #btn-apply {
+    flex: 1 !important;
+    padding: 8px 10px !important;
+    font-size: 10px !important;
+  }
+
+  /* Reserve space so scrollable main content doesn't hide under the pinned CHANGE/APPLY footer */
+  #main {
+    padding-bottom: 52px;
+  }
+}
+
+</style>
+</head>
+<body>
+<div id="briefing-overlay" role="dialog" aria-modal="true" aria-label="Simulation overview">
+  <div id="briefing-card">
+    <div id="briefing-title" class="g-green">WFM TRAINING SIMULATOR</div>
+    <div id="briefing-sub">OVERVIEW</div>
+
+    <div id="briefing-body">
+      <div><strong>Learning objective:</strong> Manage a 9-hour contact-center day and practice staffing decisions against changing demand. The exercise is successful when <strong>both</strong> KPIs below are maintained together.</div>
+      <ul>
+        <li><strong>SL ≥ 80%</strong> (answered within 20 seconds)</li>
+        <li><strong>Occupancy 70–90%</strong> (low = overstaffed / high = overload)</li>
+      </ul>
+
+      <div style="margin-top:10px"><strong>Available actions</strong></div>
+      <ul>
+        <li><strong>Adjust staffing levels</strong> using ADD / REDUCE</li>
+        <li>Operational rules are modeled to mirror real WFM trade-offs</li>
+        <li>Use <strong>RESET</strong> to begin a new training run</li>
+      </ul>
+
+      <div style="margin-top:10px"><strong>Operational assumptions</strong></div>
+      <ul>
+        <li><strong>Additional staffing is not immediate</strong>: new agents arrive after a 10-minute lead time.</li>
+        <li><strong>Adjustments have a cooldown</strong>: after a staffing change, the next change is available after 15 minutes.</li>
+        <li>When <strong>Occupancy is outside the target range</strong>, an AHT penalty is applied.</li>
+      </ul>
+
+      <div id="briefing-hints">
+        <div style="margin-top:10px"><strong>GUIDANCE</strong></div>
+        <ul>
+          <li><strong>Projected SL</strong> is a landing forecast computed from real-time results using <strong>Erlang C / Erlang X+</strong>. Do not react impulsively; use it to decide proactively.</li>
+          <li>Watch the <strong>gap between Forecast and Actual</strong> (top chart) and adjust ahead of the next phase to stay stable.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div id="briefing-actions">
+      <button class="ctrl-btn" id="btn-hints">GUIDANCE</button>
+      <button class="ctrl-btn" id="btn-start-shift">START SIMULATION</button>
+    </div>
+  </div>
+</div>
+
+<div id="game">
+  <div id="header">
+    <div id="title" class="g-green">WFM TRAINING SIMULATOR</div>
+    <div id="header-phase">
+      <span id="forecast-phase-cur"></span>
+      <span id="header-phase-next"><span class="ph-tag">NEXT</span><span id="forecast-phase-next"></span></span>
+    </div>
+    <div id="header-right">
+      <button class="ctrl-btn" id="btn-briefing" style="margin-right:10px">OVERVIEW</button>
+      <span class="g-cyan" id="sim-clock">TIME REMAINING: 08:00:00</span>
+    </div>
+  </div>
+
+  <div id="main">
+    <div id="agent-panel">
+      <div id="agent-meta">
+        <div class="panel-title g-green">STAFFING</div>
+        <div id="agent-fatigue">
+          <span class="panel-title">AHT PENALTY</span>
+          <span id="fatigue-header" class="g-green">NORMAL</span>
+        </div>
+      </div>
+      <div id="agent-summary">
+        <span>BUSY: <span id="busy-count" class="g-orange">0</span></span>
+        <span>IDLE: <span id="idle-count" class="g-green">0</span></span>
+        <span>WRAP: <span id="wrap-count" class="g-cyan">0</span></span>
+        <span>LUNCH: <span id="lunch-count" class="g-white">0</span></span>
+        <span>BREAK: <span id="break-count" class="g-cyan">0</span></span>
+      </div>
+      <div id="agent-grid"></div>
+      <div id="agent-answer-panel">
+        <div id="agent-change-row">
+          <span class="change-label">CHANGE</span>
+          <button class="ctrl-btn" id="btn-delta-down" style="padding:3px 8px;min-width:26px">−</button>
+          <span id="agent-delta-display" class="g-cyan" style="font-size:14px;font-weight:700;min-width:36px;text-align:center">0</span>
+          <button class="ctrl-btn" id="btn-delta-up" style="padding:3px 8px;min-width:26px">＋</button>
+          <button class="ctrl-btn" id="btn-apply" style="padding:4px 12px;flex:1"><span id="btn-apply-label">APPLY</span></button>
+        </div>
+        <div id="agent-count-row" style="display:flex;align-items:center;justify-content:center;gap:10px;margin-top:6px;padding-top:6px;border-top:1px solid var(--line)">
+          <span style="font-size:9px;letter-spacing:0.18em;color:var(--ink-dim);text-transform:uppercase">Total Staff</span>
+          <span id="agent-count-display" style="color:var(--header-ink);font-weight:700;font-size:16px;line-height:1">13</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="right-panel">
+      <div id="outlook-block">
+        <div id="outlook-head">
+          <div class="section-title g-green">CALL VOLUME FORECAST</div>
+        </div>
+        <div id="forecast-panel">
+          <svg id="forecast-chart" viewBox="0 0 560 138" preserveAspectRatio="xMidYMid meet" aria-label="forecast chart"></svg>
+          <div id="outlook-legend">
+            <span style="color:#6dbfc2">■ Forecast</span>
+            <span style="color:#00ff41">■ Actual (In SL, 15-min rolling)</span>
+          </div>
+        </div>
+      </div>
+
+      <div id="queue-panel">
+        <div id="queue-header">
+          <span class="panel-title g-green">QUEUE</span>
+        </div>
+        <div id="queue-calls"></div>
+      </div>
+
+      <div id="metrics-panel">
+        <div class="metrics-col" id="kpi-block">
+          <div class="metrics-head">KPI</div>
+          <div class="metric-stack">
+            <div class="metric-row">
+              <span class="m-label">SL</span>
+              <div class="m-bar"><div class="m-fill" id="sl-bar" style="width:0%"></div><div class="m-target" style="left:80%"></div></div>
+              <span class="m-val g-green" id="sl-val">0.0%</span>
+              <span class="m-note" id="sl-note">ON TARGET</span>
+            </div>
+            <div class="metric-row">
+              <span class="m-label" id="forecast-label">Projected SL</span>
+              <div class="m-bar"><div class="m-fill" id="erl-bar" style="width:0%"></div><div class="m-target" style="left:80%"></div></div>
+              <span class="m-val g-cyan" id="erl-val">0.0%</span>
+              <span class="m-note" id="forecast-note">ON TRACK</span>
+            </div>
+            <div class="metric-row">
+              <span class="m-label">Occupancy</span>
+              <div class="m-bar"><div class="m-fill" id="cost-bar" style="width:0%"></div><div class="m-target" style="left:70%"></div><div class="m-target" style="left:90%"></div></div>
+              <span class="m-val g-cyan" id="cost-val">0.0%</span>
+              <span class="m-note" id="cost-note">ON TRACK</span>
+            </div>
+          </div>
+          <div id="phase-table"></div>
+        </div>
+
+        <div class="metrics-col" id="actual-block">
+          <div class="metrics-head">Actual</div>
+          <div class="stat-stack">
+            <div class="stat-row"><span class="s-label">Offered</span><span class="s-val g-white" id="total-calls">0</span></div>
+            <div class="stat-row"><span class="s-label">Answered</span><span class="s-val g-white" id="total-ans">0</span></div>
+            <div class="stat-row"><span class="s-label">Answer Rate</span><span class="s-val g-white" id="answer-rate-val">0.0%</span></div>
+            <div class="stat-row"><span class="s-label">In SL</span><span class="s-val g-white" id="total-sl">0</span></div>
+            <div class="stat-row"><span class="s-label">Abandoned</span><span class="s-val g-white" id="total-aband">0</span></div>
+            <div class="stat-row"><span class="s-label">AHT</span><span class="s-val g-white" id="aht-val">0.0s</span></div>
+            <div class="stat-row"><span class="s-label">Avg Wait</span><span class="s-val g-white" id="avg-wait">0.0s</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="result-panel">
+        <div id="result-title">Operational Guidance</div>
+        <div id="alert-bar"></div>
+        <div id="result-body" class="g-white">Manage the 9-hour day while keeping both SL ≥ 80% and Occupancy within 70–90%.</div>
+        <div id="result-accuracy" class="g-cyan"></div>
+      </div>
+
+
+    </div>
+  </div>
+
+  <div id="controls">
+    <div class="ctrl-group">
+      <span class="ctrl-label">MODEL:</span>
+      <button class="ctrl-btn model-active" data-model="erlang_c">ERLANG C</button>
+      <button class="ctrl-btn" data-model="erlang_x">ERLANG X+</button>
+    </div>
+    <div class="ctrl-group">
+      <span class="ctrl-label">SPEED:</span>
+      <input id="speed-slider" type="range" min="0" max="6" step="1" value="2">
+      <span id="speed-value">100×</span>
+    </div>
+    <div class="ctrl-group">
+      <button class="ctrl-btn pause-btn" id="btn-pause">PAUSE</button>
+      <button class="ctrl-btn reset-btn" id="btn-reset" style="margin-left:8px">RESET</button>
+    </div>
+  </div>
+</div>
+
+<div id="phase-flash"></div>
+
+<script>
+'use strict';
+
+const ERLANG_MAX_Q = 500;
+const SIM_DT = 0.05;
+const $ = id => document.getElementById(id);
+
+// ---- Briefing overlay control --------------------------------------------
+let __briefingPrevPaused = true;
+
+function pauseIfRunning() {
+  if (S.running && !S.paused) setPaused(true);
+}
+
+function resumeIfWasRunning() {
+  if (S.running && S.paused && __briefingPrevPaused === false) setPaused(false);
+}
+
+function openBriefing() {
+  const ov = $('briefing-overlay');
+  if (!ov) return;
+  __briefingPrevPaused = S.paused || !S.running;
+  ov.classList.remove('hidden');
+  pauseIfRunning();
+}
+
+function showBriefing() {
+  // Initial load behavior: show briefing before the simulation starts.
+  const ov = $('briefing-overlay');
+  if (ov) ov.classList.remove('hidden');
+  __briefingPrevPaused = true;
+}
+
+function closeBriefing() {
+  const ov = $('briefing-overlay');
+  if (ov) ov.classList.add('hidden');
+  resumeIfWasRunning();
+}
+
+function startSimulation() {
+  if (!S.started) {
+    S.started = true;
+    startLoop();
+  }
+  setPaused(false);
+  __briefingPrevPaused = false;
+  const ov = $('briefing-overlay');
+  if (ov) ov.classList.add('hidden');
+}
+
+function toggleBriefingHints() {
+  const hints = $('briefing-hints');
+  if (!hints) return;
+  hints.classList.toggle('show');
+}
+
+window.addEventListener('load', () => {
+  showBriefing();
+  const startBtn = $('btn-start-shift');
+  const hintsBtn = $('btn-hints');
+  const briefingBtn = $('btn-briefing');
+  const resetBtn = $('btn-reset');
+  if (startBtn) startBtn.addEventListener('click', startSimulation);
+  if (hintsBtn) hintsBtn.addEventListener('click', toggleBriefingHints);
+  if (briefingBtn) briefingBtn.addEventListener('click', openBriefing);
+  if (resetBtn) resetBtn.addEventListener('click', () => location.reload());
+
+  // ESC closes the briefing if open.
+  window.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    const ov = $('briefing-overlay');
+    if (!ov || ov.classList.contains('hidden')) return;
+    closeBriefing();
+  });
+});
+// --------------------------------------------------------------------------
+
+function clip01(x) { return Math.max(0, Math.min(1, x)); }
+
+function steadyState(lambda, mu, theta, s, maxQ) {
+  const k = s + maxQ;
+  const p = new Float64Array(k + 1);
+  p[0] = 1.0;
+  for (let n = 1; n <= k; n++) {
+    const denom = n <= s ? n * mu : s * mu + (n - s) * theta;
+    p[n] = p[n - 1] * (lambda / Math.max(denom, 1e-15));
+  }
+  let norm = 0.0;
+  for (let n = 0; n <= k; n++) norm += p[n];
+  if (norm < 1e-300) norm = 1e-300;
+  for (let n = 0; n <= k; n++) p[n] /= norm;
+
+  let delayProb = 0.0;
+  for (let n = s; n < k; n++) delayProb += p[n];
+
+  let busy = 0.0;
+  for (let n = 1; n <= s; n++) busy += n * p[n];
+  for (let n = s + 1; n <= k; n++) busy += s * p[n];
+
+  let qLen = 0.0;
+  for (let n = s + 1; n <= k; n++) qLen += (n - s) * p[n];
+
+  return {
+    delayProb: clip01(delayProb),
+    blockProb: clip01(p[k]),
+    busyFrac: clip01(busy / Math.max(1, s)),
+    qLen
+  };
+}
+
+function fixedPointLambda(lambda0, mu, theta, s, maxQ, redial) {
+  let lambdaEff = lambda0;
+  let abandonFrac = 0, blockProb = 0, delayProb = 0, busyFrac = 0, qLen = 0;
+  for (let i = 0; i < 50; i++) {
+    const ss = steadyState(lambdaEff, mu, theta, s, maxQ);
+    blockProb = ss.blockProb;
+    delayProb = ss.delayProb;
+    busyFrac = ss.busyFrac;
+    qLen = ss.qLen;
+    abandonFrac = lambdaEff > 1e-12 ? clip01((theta * qLen) / lambdaEff) : 0;
+    const next = lambda0 + redial * abandonFrac * lambdaEff;
+    if (Math.abs(next - lambdaEff) < 1e-10) { lambdaEff = next; break; }
+    lambdaEff = 0.5 * lambdaEff + 0.5 * next;
+  }
+  return { lambdaEff, abandonFrac, blockProb, delayProb, busyFrac };
+}
+
+function erlangXPlusSL(callsPerHour, periodMin, ahtSec, slTimeSec, agents, patienceSec, redial) {
+  if (agents <= 0) return 0;
+  if (callsPerHour <= 0) return 1;    // no arrivals => SL is trivially 1 (match Erlang C)
+  const mu = 1 / ahtSec;
+  const theta = 1 / patienceSec;
+  const lambda0 = callsPerHour / (periodMin * 60);
+  const fp = fixedPointLambda(lambda0, mu, theta, agents, ERLANG_MAX_Q, redial);
+  const lambdaAcc = fp.lambdaEff * (1 - fp.blockProb);
+  let gamma = agents * mu + theta - lambdaAcc;
+  if (gamma < 1e-12) gamma = 1e-12;
+  return clip01((1 - fp.blockProb) - fp.delayProb * Math.exp(-gamma * slTimeSec));
+}
+
+function erlangCSL(callsPerHour, periodMin, ahtSec, slTimeSec, agents) {
+  // Classical Erlang C service-level formula (M/M/s, infinite queue, no abandonment).
+  //   lambda  = callsPerHour / (periodMin * 60)   [calls per second]
+  //   A (erl) = lambda * ahtSec                    [offered load]
+  //   rho     = A / s                              [utilization, must be < 1]
+  //
+  //                        (A^s / s!) * s / (s - A)
+  //   C(s, A) = --------------------------------------------------
+  //             sum_{k=0}^{s-1} A^k/k!  +  (A^s/s!) * s / (s - A)
+  //
+  //   SL(T) = 1 - C(s, A) * exp(-(s - A) * T / ahtSec)
+  //
+  // Requires s to be a positive integer. Callers may pass a fractional agent
+  // count (e.g. from effectiveAgentsForPhase); if we don't round, the loop
+  // `k < agents` and the post-loop `term *= A/agents` disagree on which "s"
+  // they mean -- the result stays finite but the C formula is ill-defined.
+  if (agents <= 0) return 0;
+  agents = Math.max(1, Math.round(agents));
+  if (callsPerHour <= 0) return 1;              // no arrivals => all trivially within SL
+  const offeredLoad = (callsPerHour / (periodMin * 60)) * ahtSec;
+  if (offeredLoad <= 1e-9) return 1;
+  if (offeredLoad >= agents) return 0;          // unstable queue, grows without bound
+  let sum = 1.0, term = 1.0;                    // sum accumulates A^k/k! for k=0..s-1
+  for (let k = 1; k < agents; k++) { term *= offeredLoad / k; sum += term; }
+  term *= offeredLoad / agents;                 // term is now A^s / s!
+  const tail = term * (agents / (agents - offeredLoad));  // (A^s/s!) * s/(s-A)
+  const erlangC = tail / (sum + tail);
+  const exponent = -((agents - offeredLoad) * slTimeSec) / ahtSec;
+  return clip01(1 - erlangC * Math.exp(exponent));
+}
+
+const CFG = {
+  ahtSec: 300, wrapSec: 30, patienceSec: 90, slTimeSec: 20,
+  ahtSigma: 0.35,
+  redial: 0.2, redialMeanSec: 300, periodMin: 60, ringTimeSec: 3,
+  maxQueueDisplay: 60, shrinkage: 0.30
+};
+
+const GAME_RULES = {
+  gameDurationSec: 9 * 60 * 60,
+  targetSL: 0.80,
+  occDangerThreshold: 0.85,
+  maxOccDangerSec: 45 * 60,
+  fatiguePenaltyAhtRate: 1.15,
+  lunchBatchSize: 6,
+  lunchDurationSec: 60 * 60,
+  breakDurationSec: 15 * 60,
+  breakBatchSize: 6,
+  morningBreakOffsetSec: 60 * 60,
+  eveningBreakOffsetSec: 30 * 60,
+  hireLeadTimeSec: 10 * 60,
+  adjustCooldownSec: 15 * 60,
+  adjustStep: 2,
+  maxIdleHours: 35,
+  budgetMax: 35 * 3600, // Legacy KPI reference. Not shown in the UI after the NPT refactor; kept for compatibility.
+  nptTargetMax: 0.30,        // Legacy upper bound (= 1 - occupancyRangeMin). Used by the projection helpers.
+  occupancyRangeMin: 0.70,   // Occupancy lower bound. Below = overstaffed + AHT slightly slow (×ahtPenaltyLow).
+  occupancyRangeMax: 0.90,   // Occupancy upper bound. Above = overloaded + AHT markedly slow (×ahtPenaltyHigh).
+  ahtPenaltyLow: 1.10,       // AHT multiplier when Occupancy < 70% (slightly slow).
+  ahtPenaltyHigh: 1.30,      // AHT multiplier when Occupancy > 90% (markedly slow).
+  fatigueEnabled: false,
+  difficulty: 'normal',
+  costPerAgentPerSec: 1.0,
+  minAgents: 10,
+  overflowAhtMultiplier: 1.5,
+  initialAgents: 18,
+  startingAgents: 12,
+  defaultSpeed: 100
+};
+
+const DIFFICULTY_PRESETS = {
+  easy:   { label: 'EASY',   ahtSec: 300, targetSL: 0.75, maxIdleHours: 50, nptTargetMax: 0.35, occupancyRangeMin: 0.65, occupancyRangeMax: 0.92, fatigueEnabled: false },
+  normal: { label: 'NORMAL', ahtSec: 300, targetSL: 0.80, maxIdleHours: 35, nptTargetMax: 0.30, occupancyRangeMin: 0.70, occupancyRangeMax: 0.90, fatigueEnabled: false },
+  hard:   { label: 'HARD',   ahtSec: 300, targetSL: 0.80, maxIdleHours: 25, nptTargetMax: 0.25, occupancyRangeMin: 0.75, occupancyRangeMax: 0.88, fatigueEnabled: true  }
+};
+
+function applyDifficulty(key) {
+  const d = DIFFICULTY_PRESETS[key];
+  if (!d) return;
+  CFG.ahtSec = d.ahtSec;
+  GAME_RULES.targetSL = d.targetSL;
+  GAME_RULES.maxIdleHours = d.maxIdleHours;
+  GAME_RULES.budgetMax = d.maxIdleHours * 3600;
+  GAME_RULES.nptTargetMax = d.nptTargetMax;
+  if (d.occupancyRangeMin !== undefined) GAME_RULES.occupancyRangeMin = d.occupancyRangeMin;
+  if (d.occupancyRangeMax !== undefined) GAME_RULES.occupancyRangeMax = d.occupancyRangeMax;
+  GAME_RULES.fatigueEnabled = d.fatigueEnabled;
+  GAME_RULES.difficulty = key;
+}
+
+const SCENARIO_PHASES = [
+  { key: 'opening',   label: 'OPENING',         durationSec:  30 * 60, callsPerHour: 80,  rampTo: 180, color: '#7ea8ff' },
+  { key: 'morning',   label: 'MORNING BUILD',   durationSec: 105 * 60, callsPerHour: 180, color: '#ccff33' },
+  { key: 'lunch',     label: 'LUNCH ROTATION',  durationSec: 150 * 60, callsPerHour: 95,  color: '#ffff00' },
+  { key: 'afternoon', label: 'AFTERNOON DIP',   durationSec: 120 * 60, callsPerHour: 123, color: '#00ff41' },
+  { key: 'evening',   label: 'EVENING SURGE',   durationSec:  75 * 60, callsPerHour: 150, color: '#ff8800' },
+  { key: 'closing',   label: 'CLOSING',         durationSec:  60 * 60, callsPerHour: 150, rampTo: 60,  color: '#c97f4a' }
+];
+
+const MODEL_LABELS = { shrinkage: 'ANSWER RATE', erlang_c: 'ERLANG C', erlang_x: 'ERLANG X+' };
+
+const S = {
+  running: false, started: false, paused: false, simTime: 0,
+  speed: GAME_RULES.defaultSpeed,
+  predictionModel: 'erlang_c',
+  numAgents: GAME_RULES.startingAgents,
+  agents: [], queue: [], pendingAgents: [],
+  callId: 0, nextAgentId: 1, nextArrival: 0,
+  totalCalls: 0, totalAnswered: 0, totalAnsweredInSL: 0, totalAbandoned: 0,
+  redialQueue: [], totalRedials: 0, totalWaitSum: 0, totalHandleSec: 0, totalCost: 0,
+  totalOccDangerSec: 0, totalBusyAgentSec: 0, totalWrapSec: 0, totalBreakSec: 0, totalStaffedAgentSec: 0, totalQueueDepthSec: 0, totalAgentSec: 0,
+  sawEarlyOverstaffing: false, lunchHireCount: 0,
+  nextAdjustTime: 0, lastFrameTs: null, simAccum: 0,
+  finalResult: 'RUNNING', finalReasons: [], finalSummary: '', finalModelSummary: '',
+  finalForecasts: null, lastLandingForecasts: null, midpointForecasts: null,
+  phaseStartSim: 0, slDipActive: false, slDipStartTime: 0, slDipPeakDrop: 1,
+  answeredSamples: [], lastAnsweredSampleTime: -999
+};
+
+const LOG_MAX = 4;
+let logLines = [];
+let lastPhaseKey = null;
+let phaseChangeTs = -9999;
+let phaseLog = [];
+let phaseSnap = { answeredInSL: 0, answered: 0, abandoned: 0, cost: 0, calls: 0, handleSec: 0, waitSum: 0, agentSec: 0, t: 0 };
+
+function fmtTime(sec) {
+  const h = Math.floor(sec / 3600).toString().padStart(2, '0');
+  const m = Math.floor((sec % 3600) / 60).toString().padStart(2, '0');
+  const s = Math.floor(sec % 60).toString().padStart(2, '0');
+  return `${h}:${m}:${s}`;
+}
+
+function fmtDur(sec) {
+  sec = Math.max(0, sec);
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60).toString().padStart(2, '0');
+  return `${m}:${s}`;
+}
+
+function fmtPct(value) { return `${(clip01(value) * 100).toFixed(1)}%`; }
+function expRand(mean) { return -Math.log(Math.random() + 1e-15) * mean; }
+function randn() {
+  let u = 0, v = 0;
+  while (u === 0) u = Math.random();
+  while (v === 0) v = Math.random();
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+}
+function lognormalRand(mean, sigma) {
+  mean = Math.max(1e-9, mean);
+  sigma = Math.max(1e-9, sigma);
+  const mu = Math.log(mean) - 0.5 * sigma * sigma;
+  return Math.exp(mu + sigma * randn());
+}
+function modelLabel(key) { return MODEL_LABELS[key] || key.toUpperCase(); }
+
+function recordPhaseLog(phaseKey) {
+  const phase = SCENARIO_PHASES.find(p => p.key === phaseKey);
+  if (!phase) return;
+  const deltaAnswered  = S.totalAnswered - phaseSnap.answered;
+  const deltaInSL      = S.totalAnsweredInSL - phaseSnap.answeredInSL;
+  const deltaCalls     = S.totalCalls - phaseSnap.calls;
+  const deltaAbandoned = S.totalAbandoned - phaseSnap.abandoned;
+  const deltaHandle    = S.totalHandleSec - phaseSnap.handleSec;
+  const deltaWait      = S.totalWaitSum - phaseSnap.waitSum;
+  const deltaAgentSec  = S.totalAgentSec - phaseSnap.agentSec;
+  const deltaTime      = S.simTime - phaseSnap.t;
+  const sl        = deltaAnswered > 0 ? deltaInSL / deltaAnswered : 1;
+  const aht       = deltaAnswered > 0 ? deltaHandle / deltaAnswered : 0;
+  const avgWait   = deltaAnswered > 0 ? deltaWait / deltaAnswered : 0;
+  const avgAgents = deltaTime > 0 ? deltaAgentSec / deltaTime : S.agents.length;
+  phaseLog.push({ key: phase.key, label: phase.label, calls: deltaCalls, avgAgents, sl, abandoned: deltaAbandoned, aht, avgWait });
+  phaseSnap = { answeredInSL: S.totalAnsweredInSL, answered: S.totalAnswered, abandoned: S.totalAbandoned, cost: S.totalCost, calls: S.totalCalls, handleSec: S.totalHandleSec, waitSum: S.totalWaitSum, agentSec: S.totalAgentSec, t: S.simTime };
+}
+
+function addLog(msg, color) {
+  const colors = { green: '#00ff41', yellow: '#ffff00', red: '#ff3333', cyan: '#00ffff', orange: '#ff8800', white: '#ffffff' };
+  logLines.unshift({ ts: fmtTime(S.simTime), msg, c: colors[color] || '#00ff41' });
+  if (logLines.length > LOG_MAX) logLines.length = LOG_MAX;
+  renderLog();
+}
+
+function currentPhase() {
+  let elapsed = S.simTime;
+  for (const phase of SCENARIO_PHASES) {
+    if (elapsed < phase.durationSec) return phase;
+    elapsed -= phase.durationSec;
+  }
+  return SCENARIO_PHASES[SCENARIO_PHASES.length - 1];
+}
+
+function currentCallsPerHour() {
+  const phase = currentPhase();
+  if (phase.rampTo === undefined) return phase.callsPerHour;
+  const idx = SCENARIO_PHASES.indexOf(phase);
+  const elapsed = S.simTime - phaseStartSec(idx);
+  const t = clip01(elapsed / phase.durationSec);
+  return phase.callsPerHour + (phase.rampTo - phase.callsPerHour) * t;
+}
+
+function lunchPhaseStartSec() {
+  const lunchIndex = SCENARIO_PHASES.findIndex(phase => phase.key === 'lunch');
+  return lunchIndex === -1 ? 0 : phaseStartSec(lunchIndex);
+}
+function lunchElapsedSec() { return currentPhase().key === 'lunch' ? S.simTime - lunchPhaseStartSec() : -1; }
+function assignLunchSlot(agent) { agent.lunchSlot = Math.floor((agent.id - 1) / GAME_RULES.lunchBatchSize); }
+function assignBreakSlot(agent) { agent.breakSlot = Math.floor((agent.id - 1) / GAME_RULES.breakBatchSize); }
+function morningPhaseStartSec() {
+  const idx = SCENARIO_PHASES.findIndex(p => p.key === 'morning');
+  return idx === -1 ? 0 : phaseStartSec(idx);
+}
+function eveningPhaseStartSec() {
+  const idx = SCENARIO_PHASES.findIndex(p => p.key === 'evening');
+  return idx === -1 ? 0 : phaseStartSec(idx);
+}
+
+function phaseStartSec(index) {
+  let acc = 0;
+  for (let i = 0; i < index; i++) acc += SCENARIO_PHASES[i].durationSec;
+  return acc;
+}
+
+function nextPhase() {
+  let acc = 0;
+  for (let i = 0; i < SCENARIO_PHASES.length; i++) {
+    acc += SCENARIO_PHASES[i].durationSec;
+    if (S.simTime < acc) return SCENARIO_PHASES[i + 1] || null;
+  }
+  return null;
+}
+
+function currentSL() { return S.totalAnswered > 0 ? S.totalAnsweredInSL / S.totalAnswered : 1; }
+
+function currentOcc() {
+  // Occupancy snapshot: (BUSY + RINGING + WRAP) / on-seat headcount (excl. LUNCH/BREAK)
+  const active = S.agents.filter(a => a.status === 'busy' || a.status === 'ringing' || a.status === 'wrap').length;
+  const available = S.agents.filter(a => a.status !== 'lunch' && a.status !== 'break').length;
+  return available > 0 ? active / available : 0;
+}
+
+function cumulativeOcc() {
+  // Running Occupancy: (BUSY + WRAP) seconds over on-seat seconds. Matches the displayed Occupancy metric.
+  return S.totalStaffedAgentSec > 0 ? clip01((S.totalBusyAgentSec + S.totalWrapSec) / S.totalStaffedAgentSec) : currentOcc();
+}
+
+function currentNPT() {
+// Occupancy = (BUSY + WRAP) / (BUSY + WRAP + IDLE) — BREAK/LUNCH excluded from denominator (Logged-in time only)
+// IDLE% = 1 - Occupancy = IDLE / (BUSY + WRAP + IDLE)  target ≤ 20% (= Occupancy 70-90%)
+  // Function is named NPT for legacy reasons but returns IDLE% (UI renders Occupancy = 1 - currentNPT()).
+  const idleSec = S.totalCost - S.totalWrapSec - S.totalBreakSec;
+  const loggedInSec = S.totalBusyAgentSec + S.totalWrapSec + idleSec;
+  return loggedInSec > 0 ? clip01(idleSec / loggedInSec) : 0;
+}
+
+function currentFatigueMultiplier() {
+  if (!GAME_RULES.fatigueEnabled) return 1;
+  if (cumulativeOcc() > GAME_RULES.occDangerThreshold) return GAME_RULES.fatiguePenaltyAhtRate;
+  return 1;
+}
+
+function liveOccupancy() {
+  // Live Occupancy = (BUSY + RINGING + WRAP) / on-seat headcount (excl. lunch/break)
+  // = fraction of staffed agents currently tied up on a call or wrap.
+  const onCall = S.agents.filter(a => a.status === 'busy' || a.status === 'ringing' || a.status === 'wrap').length;
+  const loggedIn = S.agents.filter(a => a.status !== 'lunch' && a.status !== 'break').length;
+  return loggedIn > 0 ? onCall / loggedIn : 0;
+}
+
+function currentOccupancyAhtMultiplier() {
+  // AHT penalty when Occupancy sits outside the target band:
+//   < occupancyRangeMin (70%): focus drops from being too idle — ×ahtPenaltyLow (slightly slow)
+//   > occupancyRangeMax (90%): overloaded and burning out      — ×ahtPenaltyHigh (markedly slow)
+  const occ = liveOccupancy();
+  if (occ > GAME_RULES.occupancyRangeMax) return GAME_RULES.ahtPenaltyHigh;
+  if (occ < GAME_RULES.occupancyRangeMin) return GAME_RULES.ahtPenaltyLow;
+  return 1;
+}
+
+function capacityPerHourForAgents(agentCount) {
+  const coreAgents = Math.min(agentCount, GAME_RULES.initialAgents);
+  const overflowAgents = Math.max(0, agentCount - GAME_RULES.initialAgents);
+  const fatigue = currentFatigueMultiplier();
+  const coreCapacity = coreAgents * (3600 / Math.max(CFG.ahtSec * fatigue, 1e-9));
+  const overflowCapacity = overflowAgents * (3600 / Math.max(CFG.ahtSec * GAME_RULES.overflowAhtMultiplier * fatigue, 1e-9));
+  return coreCapacity + overflowCapacity;
+}
+
+function canAdjustAgents() { return S.simTime >= S.nextAdjustTime; }
+
+function projectedFinalCost(agentCount = S.agents.length) {
+  // Scenario-aware projection: estimate idle cost per remaining phase using
+  // offered-load vs capacity. Much more stable than naive run-rate,
+  // especially during OPENING where the ramp-up skews short-term run-rate.
+  const agents = Math.max(1, agentCount);
+  let projected = S.totalCost;
+  for (const seg of remainingScenarioSegments()) {
+    const offeredLoad = (seg.callsPerHour * CFG.ahtSec) / 3600;
+    const busyFrac = Math.min(1, offeredLoad / agents);
+    const idleFrac = 1 - busyFrac;
+    // Lunch phase: some agents are at lunch (unpaid), idle pool shrinks.
+    const lunchDampen = seg.phase.key === 'lunch' ? 0.60 : 1.0;
+    projected += agents * idleFrac * lunchDampen * GAME_RULES.costPerAgentPerSec * seg.durationSec;
+  }
+  return projected;
+}
+
+function projectedFinalNPT(agentCount = S.agents.length) {
+  // Estimate landing IDLE% = IDLE / (BUSY+WRAP+IDLE) assuming current staffing is held.
+  // BREAK/LUNCH are excluded from both numerator and denominator (Logged-in time only).
+  const agents = Math.max(1, agentCount);
+  let idleSecAcc = S.totalCost - S.totalWrapSec - S.totalBreakSec;
+  let loggedInSec = S.totalBusyAgentSec + S.totalWrapSec + idleSecAcc;
+  for (const seg of remainingScenarioSegments()) {
+    // Lunch phase: ~40% of agents are off-seat (unpaid); on-seat pool shrinks.
+    const onSeatFactor = seg.phase.key === 'lunch' ? 0.60 : 1.0;
+    const segOnSeat = agents * onSeatFactor * seg.durationSec;
+
+    // Break time: morning/evening phases each force breakBatchSize agents to break.
+    let segBreakSec = 0;
+    if (seg.phase.key === 'morning' || seg.phase.key === 'evening') {
+      const phaseBreakSec = Math.min(agents, GAME_RULES.breakBatchSize) * GAME_RULES.breakDurationSec;
+      segBreakSec = phaseBreakSec * (seg.durationSec / seg.phase.durationSec);
+    }
+
+    // Logged-in seconds = on-seat minus break. Each call consumes (AHT + wrap) of agent time.
+    const segLoggedIn = Math.max(0, segOnSeat - segBreakSec);
+    const secPerCall = CFG.ahtSec + CFG.wrapSec;
+    const callsInSeg = (seg.callsPerHour * seg.durationSec) / 3600;
+    const handled = Math.min(callsInSeg, segLoggedIn / Math.max(secPerCall, 1e-9));
+    const busySec = handled * CFG.ahtSec;
+    const wrapSec = handled * CFG.wrapSec;
+    const idleSec = Math.max(0, segLoggedIn - busySec - wrapSec);
+
+    idleSecAcc  += idleSec;     // BREAK is excluded from both numerator and denominator
+    loggedInSec += segLoggedIn;
+  }
+  return loggedInSec > 0 ? clip01(idleSecAcc / loggedInSec) : 0;
+}
+
+function budgetPaceStatus() {
+  if (currentPhase().key === 'opening') return { label: 'WARMING UP', color: '#7ea8ff' };
+  const projectedOcc = 1 - projectedFinalNPT();
+  if (projectedOcc < GAME_RULES.occupancyRangeMin) return { label: 'BELOW RANGE', color: '#ff3333' };
+  if (projectedOcc > GAME_RULES.occupancyRangeMax) return { label: 'ABOVE RANGE', color: '#ff3333' };
+  const margin = Math.min(projectedOcc - GAME_RULES.occupancyRangeMin, GAME_RULES.occupancyRangeMax - projectedOcc);
+  if (margin < 0.03) return { label: 'TIGHT', color: '#ff8800' };
+  return { label: 'IN RANGE', color: '#00ff41' };
+}
+
+function burnRateStatus() {
+  const burnPerHour = S.agents.length * GAME_RULES.costPerAgentPerSec * 3600;
+  const safeBurnPerHour = GAME_RULES.budgetMax / Math.max(1, GAME_RULES.gameDurationSec / 3600);
+  if (burnPerHour > safeBurnPerHour * 1.15) return { label: 'HIGH', color: '#ff3333' };
+  if (burnPerHour > safeBurnPerHour * 0.9)  return { label: 'MED',  color: '#ff8800' };
+  return { label: 'LOW', color: '#00ff41' };
+}
+
+function isEarlyOverstaffed() {
+  const earlyWindowSec = 90 * 60;
+  if (currentPhase().key === 'opening') return false; // OPENING is warm-up, not real pressure
+  return (
+    S.simTime <= earlyWindowSec &&
+    currentOcc() < 0.58 &&
+    (1 - projectedFinalNPT()) < GAME_RULES.occupancyRangeMin
+  );
+}
+
+// ---- Prediction calibration helpers ----------------------------------------
+// The raw Erlang formulas systematically over-predict SL in this sim because:
+//   (1) they use CFG.ahtSec (talk only) as the service time, ignoring the extra
+//       seat time per call from ring (3s) + wrap (30s) -- roughly an 11% load
+//       under-statement;
+//   (2) they have no model of the occupancy AHT penalty (x1.10 when
+//       occupancy < 70%, x1.30 when > 90%), so they miss the overload spiral;
+//   (3) they treat S.agents.length as fully available, even during LUNCH where
+//       one lunch-batch (6) is off-seat at any time, and during MORNING/EVENING
+//       break rotations;
+//   (4) they miss the overflow-agent penalty (AHT x1.5 for agents beyond the
+//       initial headcount).
+// These helpers correct the per-segment AHT and on-seat agent count before
+// feeding them into the Erlang C / Erlang X+ solvers.
+function effectiveAgentsForPhase(totalAgents, phase) {
+  const total = Math.max(1, totalAgents);
+  if (!phase) return total;
+  if (phase.key === 'lunch') {
+    // One lunch-batch is on 1h lunch at any moment during LUNCH rotation.
+    return Math.max(1, total - GAME_RULES.lunchBatchSize);
+  }
+  if (phase.key === 'morning' || phase.key === 'evening') {
+    // Average agents off-seat during break rotation = (batch * breakSec) / phaseSec.
+    const avgOff = (GAME_RULES.breakBatchSize * GAME_RULES.breakDurationSec) / phase.durationSec;
+    return Math.max(1, total - avgOff);
+  }
+  return total;
+}
+
+function effectiveAhtForPrediction(callsPerHour, agents) {
+  // Full per-call seat time: ring + talk + wrap.
+  const baseSec = CFG.ahtSec + CFG.wrapSec + CFG.ringTimeSec;
+  const n = Math.max(1, agents);
+  // Agent-weighted blend of core agents (x1.0) and overflow agents (xoverflowAhtMultiplier).
+  const coreAgents = Math.min(n, GAME_RULES.initialAgents);
+  const overflowAgents = Math.max(0, n - GAME_RULES.initialAgents);
+  const weighted = overflowAgents === 0
+    ? baseSec
+    : (coreAgents * baseSec + overflowAgents * baseSec * GAME_RULES.overflowAhtMultiplier) / n;
+  // Fatigue multiplier (engaged only on HARD difficulty).
+  const fatigue = currentFatigueMultiplier();
+  // Occupancy-dependent AHT penalty, estimated from steady-state utilization.
+  const rho = (callsPerHour * weighted * fatigue) / (3600 * n);
+  let penalty = 1;
+  if (rho > GAME_RULES.occupancyRangeMax) penalty = GAME_RULES.ahtPenaltyHigh;
+  else if (rho < GAME_RULES.occupancyRangeMin) penalty = GAME_RULES.ahtPenaltyLow;
+  return weighted * fatigue * penalty;
+}
+// ---------------------------------------------------------------------------
+
+function predictSL(modelKey, callsPerHour, agents) {
+  const effAht = effectiveAhtForPrediction(callsPerHour, agents);
+  switch (modelKey) {
+    case 'shrinkage': {
+      const capacityPerHour = capacityPerHourForAgents(agents);
+      return clip01(capacityPerHour / Math.max(callsPerHour, 1e-9));
+    }
+    case 'erlang_c':
+      return erlangCSL(callsPerHour, CFG.periodMin, effAht, CFG.slTimeSec, agents);
+    case 'erlang_x':
+    default:
+      return erlangXPlusSL(callsPerHour, CFG.periodMin, effAht, CFG.slTimeSec, agents, CFG.patienceSec, CFG.redial);
+  }
+}
+
+function predictSegmentOutcome(modelKey, callsPerHour, agents, phase) {
+  if (agents <= 0 || callsPerHour <= 0) {
+    return { answerRate: 0, metricNumeratorRate: 0, metricDenominatorRate: 0 };
+  }
+  // Calibration: strip LUNCH/BREAK off-seat agents out of the effective headcount,
+  // and feed a full per-call seat time (ring + talk + wrap) plus overflow/occupancy
+  // AHT penalties into the Erlang solvers. See the effective* helpers above predictSL.
+  //
+  // CRITICAL (regression fix 2026-04-23):
+  // steadyState / fixedPointLambda index a Float64Array by the server count `s`.
+  // A non-integer `s` -> `p[s]` returns undefined -> delayProb/blockProb become NaN
+  // -> predictSegmentOutcome returns NaN rates -> projectedLandingSL accumulates NaN
+  // -> the `metricDenominator > 0` guard fires and silently returns 1.0
+  // (i.e. Projected SL = 100% even when the system is badly overloaded).
+  // effectiveAgentsForPhase subtracts a fractional break-rotation coverage
+  // (e.g. morning: 6 * 900 / 6300 = 0.857), so always round to an integer >= 1.
+  const effAgents = Math.max(1, Math.round(effectiveAgentsForPhase(agents, phase)));
+  const effAht = effectiveAhtForPrediction(callsPerHour, effAgents);
+  switch (modelKey) {
+    case 'shrinkage': {
+      const capacityPerHour = capacityPerHourForAgents(effAgents);
+      const answerRate = clip01(capacityPerHour / Math.max(callsPerHour, 1e-9));
+      return { answerRate, metricNumeratorRate: answerRate, metricDenominatorRate: 1 };
+    }
+    case 'erlang_c':
+      return { answerRate: 1, metricNumeratorRate: erlangCSL(callsPerHour, CFG.periodMin, effAht, CFG.slTimeSec, effAgents), metricDenominatorRate: 1 };
+    case 'erlang_x':
+    default: {
+      const mu = 1 / effAht;
+      const theta = 1 / CFG.patienceSec;
+      const lambda0 = callsPerHour / (CFG.periodMin * 60);
+      const fp = fixedPointLambda(lambda0, mu, theta, effAgents, ERLANG_MAX_Q, CFG.redial);
+      // servedRate = fraction of arrivals that are neither blocked nor abandoned.
+      // Previously we used answerRate = (1 - blockProb), which left abandoned calls
+      // in the denominator and made the SL ratio systematically optimistic. The sim
+      // defines SL = totalAnsweredInSL / totalAnswered with abandoned calls excluded
+      // from totalAnswered, so use the same definition here.
+      const servedRate = clip01(1 - fp.blockProb - fp.abandonFrac);
+      const lambdaAcc = fp.lambdaEff * servedRate;
+      let gamma = effAgents * mu + theta - lambdaAcc;
+      if (gamma < 1e-12) gamma = 1e-12;
+      // P(offered AND served within slTimeSec). Blocked / long-wait-abandoned calls are out-of-SL.
+      const inSlProb = clip01(servedRate - fp.delayProb * Math.exp(-gamma * CFG.slTimeSec));
+      return {
+        answerRate: servedRate,
+        metricNumeratorRate: inSlProb,
+        metricDenominatorRate: servedRate
+      };
+    }
+  }
+}
+
+function remainingScenarioSegments() {
+  let elapsed = S.simTime;
+  const segments = [];
+  for (const phase of SCENARIO_PHASES) {
+    if (elapsed >= phase.durationSec) { elapsed -= phase.durationSec; continue; }
+    const remainingSec = phase.durationSec - elapsed;
+    let callsPerHour = phase.callsPerHour;
+    if (phase.rampTo !== undefined) {
+      // Use the mean call rate over the remaining portion of the ramping phase.
+      const startT = clip01(elapsed / phase.durationSec);
+      const startVal = phase.callsPerHour + (phase.rampTo - phase.callsPerHour) * startT;
+      const endVal = phase.rampTo;
+      callsPerHour = (startVal + endVal) / 2;
+    }
+    segments.push({ phase, durationSec: remainingSec, callsPerHour });
+    elapsed = 0;
+  }
+  return segments;
+}
+
+function projectedLandingSL(modelKey, agents = Math.max(1, S.agents.length)) {
+  let metricNumerator = modelKey === 'shrinkage' ? S.totalAnswered : S.totalAnsweredInSL;
+  let metricDenominator = modelKey === 'shrinkage' ? S.totalCalls : S.totalAnswered;
+  for (const segment of remainingScenarioSegments()) {
+    const expectedCalls = (segment.callsPerHour * segment.durationSec) / 3600;
+    const outcome = predictSegmentOutcome(modelKey, segment.callsPerHour, agents, segment.phase);
+    // Defensive: never let a NaN leak from the solver into the accumulator. A polluted
+    // metricDenominator would make `metricDenominator > 0` false and silently return 1.0.
+    const numRate = Number.isFinite(outcome.metricNumeratorRate) ? outcome.metricNumeratorRate : 0;
+    const denRate = Number.isFinite(outcome.metricDenominatorRate) ? outcome.metricDenominatorRate : 0;
+    metricNumerator += expectedCalls * numRate;
+    metricDenominator += expectedCalls * denRate;
+  }
+  if (!Number.isFinite(metricNumerator) || !Number.isFinite(metricDenominator)) return 0;
+  return metricDenominator > 0 ? clip01(metricNumerator / metricDenominator) : 0;
+}
+
+// ---- Erlang self-check / regression harness --------------------------------
+// Run `window.__verifyErlang()` from the browser console to validate:
+//   * Erlang C matches classical textbook values (rho = 0.83 -> SL ~ 0.89, etc.)
+//   * Erlang X+ reduces to Erlang C when abandonment/redial are disabled
+//   * Erlang X+ >= Erlang C when abandonment is active (abandoners shorten queue)
+//   * Overloaded Erlang X+ returns a finite value that is NOT silently 1.0
+//   * predictSegmentOutcome never produces NaN rates (regression for the
+//     fractional-effAgents -> NaN -> Projected SL=100% bug)
+//   * projectedLandingSL returns a finite value and is not stuck at 1.0 on overload
+function __verifyErlang() {
+  const results = [];
+  const check = (name, ok, detail) => results.push({ test: name, status: ok ? 'PASS' : 'FAIL', detail });
+  const approx = (a, b, eps) => Math.abs(a - b) <= eps;
+
+  // --- Erlang C: textbook sanity ------------------------------------------
+  // Hand-calc for rho=0.833 (A=15, s=18):
+  //   sum_{k=0..17} 15^k/k! = 2,448,032
+  //   15^18/18! = 230,885
+  //   tail = 230,885 * 18/(18-15) = 1,385,310
+  //   C = 1,385,310 / (2,448,032 + 1,385,310) = 0.3614
+  //   SL(T=20, AHT=300) = 1 - 0.3614 * exp(-0.2) = 0.7040
+  const c1 = erlangCSL(180, 60, 300, 20, 18);   // 15 erl on 18 agents (rho=0.833)
+  check('Erlang C rho=0.833 SL ~ 0.704', approx(c1, 0.7040, 0.01), `got ${c1.toFixed(4)}`);
+  const c2 = erlangCSL(300, 60, 300, 20, 10);   // 25 erl on 10 agents -> overload
+  check('Erlang C overload returns 0', c2 === 0, `got ${c2}`);
+  const c3 = erlangCSL(0, 60, 300, 20, 10);     // no arrivals -> SL = 1 (fixed 2026-04-23)
+  check('Erlang C zero arrivals returns 1', c3 === 1, `got ${c3}`);
+  const c4 = erlangCSL(5, 60, 60, 20, 5);       // very light load -> SL ~ 1
+  check('Erlang C light load SL > 0.99', c4 > 0.99, `got ${c4.toFixed(4)}`);
+
+  // --- Erlang C: additional structural checks ------------------------------
+  // M/M/1 sanity: rho=0.5, T=AHT -> SL = 1 - rho*exp(-(1-rho)*T/AHT) = 0.6967
+  const mm1 = erlangCSL(1800, 60, 1, 1, 1);  // lambda=0.5/s, AHT=T=1s, s=1
+  check('Erlang C M/M/1 (rho=0.5) SL ~ 0.697', approx(mm1, 0.6967, 0.005), `got ${mm1.toFixed(4)}`);
+
+  // Monotonicity: SL is non-decreasing in staff count at fixed offered load.
+  let monotonic = true, prev = -1, monFail = '';
+  for (let n = 10; n <= 25; n++) {
+    const sl = erlangCSL(180, 60, 300, 20, n);
+    if (sl < prev - 1e-9) { monotonic = false; monFail = `n=${n}: ${sl.toFixed(4)} < ${prev.toFixed(4)}`; break; }
+    prev = sl;
+  }
+  check('Erlang C monotonic in staff count', monotonic, monFail || 'ok');
+
+  // T -> inf: SL approaches 1 (given enough time, everyone is served).
+  const cLongT = erlangCSL(180, 60, 300, 100000, 18);
+  check('Erlang C T->inf SL -> 1', cLongT > 0.999, `got ${cLongT.toFixed(6)}`);
+
+  // T = 0: SL = P(wait = 0) = 1 - C(s, A). For s=18, A=15, C=0.3614 so SL=0.6386.
+  const cT0 = erlangCSL(180, 60, 300, 0, 18);
+  check('Erlang C T=0 SL = 1 - C(18,15) ~ 0.639', approx(cT0, 0.6386, 0.005), `got ${cT0.toFixed(4)}`);
+
+  // Fractional agents: must round to integer s and stay finite (not silently drift).
+  const cFrac = erlangCSL(180, 60, 300, 20, 18.4);
+  const cInt  = erlangCSL(180, 60, 300, 20, 18);
+  check('Erlang C fractional agents -> finite', Number.isFinite(cFrac), `got ${cFrac}`);
+  check('Erlang C fractional agents rounded to int', approx(cFrac, cInt, 1e-9),
+    `frac=${cFrac.toFixed(6)} int=${cInt.toFixed(6)}`);
+
+  // Large staff / light load: factorial growth must not overflow.
+  const cBig = erlangCSL(120, 60, 300, 20, 40);
+  check('Erlang C large staff stable', Number.isFinite(cBig) && cBig > 0.99, `got ${cBig.toFixed(4)}`);
+
+  // predictSegmentOutcome (Erlang C path) must bake in the occupancy AHT penalty:
+  // at rho ~ 0.90+ the effective AHT picks up x1.30, which drags SL below the
+  // penalty-free Erlang C answer. This catches regressions in effectiveAhtForPrediction.
+  const afternoon = SCENARIO_PHASES.find(p => p.key === 'afternoon');
+  const segC = predictSegmentOutcome('erlang_c', 220, 14, afternoon);
+  const rawC = erlangCSL(220, 60, 300, 20, 14);  // no AHT penalty
+  check('Erlang C segment <= raw C (penalty reflected)',
+    Number.isFinite(segC.metricNumeratorRate) && segC.metricNumeratorRate <= rawC + 1e-6,
+    `seg=${segC.metricNumeratorRate.toFixed(4)} raw=${rawC.toFixed(4)}`);
+
+  // --- Erlang X+ structural checks ----------------------------------------
+  // With no abandonment (huge patience) and no redial, X+ must collapse to C.
+  const exNoAbd = erlangXPlusSL(180, 60, 300, 20, 18, 1e9, 0);
+  check('Erlang X+ (no abandon/redial) ~= Erlang C', approx(exNoAbd, c1, 0.03),
+    `x+=${exNoAbd.toFixed(4)} c=${c1.toFixed(4)}`);
+
+  // With abandonment active, X+ SL >= C SL at the same load (shorter queues).
+  const exAbd = erlangXPlusSL(200, 60, 300, 20, 15, 90, 0);
+  const cCmp  = erlangCSL(200, 60, 300, 20, 15);
+  check('Erlang X+ >= Erlang C under abandonment', exAbd >= cCmp - 0.005,
+    `x+=${exAbd.toFixed(4)} c=${cCmp.toFixed(4)}`);
+
+  // Heavy overload must return a finite value, and crucially must NOT be ~1.0.
+  const exOv = erlangXPlusSL(400, 60, 300, 20, 13, 90, 0.2);
+  check('Erlang X+ heavy overload is finite', Number.isFinite(exOv), `got ${exOv}`);
+  check('Erlang X+ heavy overload < 0.5', exOv < 0.5, `got ${exOv.toFixed(4)}`);
+
+  // --- Regression: fractional effAgents must not poison the projection ----
+  const morning = SCENARIO_PHASES.find(p => p.key === 'morning');
+  const segOut = predictSegmentOutcome('erlang_x', 180, 13, morning);
+  check('Segment numerator finite', Number.isFinite(segOut.metricNumeratorRate),
+    `got ${segOut.metricNumeratorRate}`);
+  check('Segment denominator finite', Number.isFinite(segOut.metricDenominatorRate),
+    `got ${segOut.metricDenominatorRate}`);
+  const segRatio = segOut.metricNumeratorRate / Math.max(segOut.metricDenominatorRate, 1e-9);
+  check('Segment morning@13 predicts SL < 0.5 (overloaded)', segRatio < 0.5,
+    `num=${segOut.metricNumeratorRate.toFixed(4)} den=${segOut.metricDenominatorRate.toFixed(4)} ratio=${segRatio.toFixed(4)}`);
+
+  // --- End-to-end: projectedLandingSL must not silently return 1.0 --------
+  const agentsForProj = Math.max(1, (S.agents && S.agents.length) || GAME_RULES.startingAgents);
+  const projX = projectedLandingSL('erlang_x', agentsForProj);
+  const projC = projectedLandingSL('erlang_c', agentsForProj);
+  check('projectedLandingSL erlang_x is finite', Number.isFinite(projX), `got ${projX}`);
+  check('projectedLandingSL erlang_c is finite', Number.isFinite(projC), `got ${projC}`);
+  // At 13 agents running through morning+lunch+evening, the landing SL must not pin at 1.0.
+  if (agentsForProj <= 14) {
+    check('projectedLandingSL erlang_x not pinned at 1.0 (13 agents)', projX < 0.999,
+      `got ${projX.toFixed(4)} (agents=${agentsForProj})`);
+  }
+
+  console.table(results);
+  const failed = results.filter(r => r.status === 'FAIL');
+  if (failed.length === 0) {
+    console.log('%c笨・All Erlang self-checks passed (' + results.length + ' tests).', 'color:#00ff41;font-weight:700');
+  } else {
+    console.warn('笨・' + failed.length + ' of ' + results.length + ' Erlang self-checks FAILED', failed);
+  }
+  return results;
+}
+if (typeof window !== 'undefined') {
+  window.__verifyErlang = __verifyErlang;
+  console.info('[WFM Training Simulator] Erlang self-check available: window.__verifyErlang()');
+}
+// ---------------------------------------------------------------------------
+
+function recommendedAgentsForCallRate(callsPerHour) {
+  // Smallest staff count whose Erlang C SL >= targetSL + 5pp buffer.
+  if (callsPerHour <= 5) return GAME_RULES.minAgents;
+  const target = Math.min(0.95, GAME_RULES.targetSL + 0.05);
+  for (let n = GAME_RULES.minAgents; n <= 40; n++) {
+    const sl = erlangCSL(callsPerHour, CFG.periodMin, CFG.ahtSec, CFG.slTimeSec, n);
+    if (sl >= target) return n;
+  }
+  return 40;
+}
+
+function minutesToNextPhaseBoundary() {
+  let acc = 0;
+  for (const p of SCENARIO_PHASES) {
+    acc += p.durationSec;
+    if (S.simTime < acc) return (acc - S.simTime) / 60;
+  }
+  return Infinity;
+}
+
+function phaseAdvanceHint() {
+  const minutes = minutesToNextPhaseBoundary();
+  if (minutes > 12) return null;
+  const next = nextPhase();
+  if (!next) return null;
+  const nextCalls = next.rampTo !== undefined ? (next.callsPerHour + next.rampTo) / 2 : next.callsPerHour;
+  const mins = Math.ceil(minutes);
+  if (nextCalls <= 5) {
+    return { level: 'ok', text: `CLOSING in ${mins} min (call volume dropping). Good window to REDUCE headcount.` };
+  }
+  const rec = recommendedAgentsForCallRate(nextCalls);
+  const have = S.agents.length + S.pendingAgents.length;
+  const diff = rec - have;
+  if (diff >= 2) {
+    return { level: 'critical', text: `${next.label} in ${mins} min (${Math.round(nextCalls)}/hr). Recommended ${rec} / Current ${have}. ADD +${diff} now.` };
+  }
+  if (diff <= -2) {
+    return { level: 'ok', text: `${next.label} in ${mins} min (${Math.round(nextCalls)}/hr). Recommended ${rec} / Current ${have}. Consider REDUCE ${-diff}.` };
+  }
+  return null;
+}
+
+function forecastBundle() {
+  const agents = Math.max(1, S.agents.length);
+  return {
+    erlang_c:  projectedLandingSL('erlang_c',  agents),
+    erlang_x:  projectedLandingSL('erlang_x',  agents)
+  };
+}
+
+function setResult(result, reasons, summary = '', modelSummary = '', forecasts = null) {
+  S.finalResult = result;
+  S.finalReasons = reasons || [];
+  S.finalSummary = summary;
+  S.finalModelSummary = modelSummary;
+  S.finalForecasts = forecasts;
+}
+
+function createAgent(isOverflow = false) {
+  const skill = Math.max(0.70, Math.min(1.30, lognormalRand(1.0, 0.15)));
+  const agent = { id: S.nextAgentId++, status: 'idle', timer: 0, maxTimer: 0, handled: 0, _svcTime: 0, _callWait: 0, lunchSlot: 0, lunchTaken: false, breakSlot: 0, break1Taken: false, break2Taken: false, isOverflow, ahtMul: skill };
+  assignLunchSlot(agent);
+  assignBreakSlot(agent);
+  return agent;
+}
+
+function initAgents(n) {
+  S.agents = [];
+  S.nextAgentId = 1;
+  for (let i = 0; i < n; i++) S.agents.push(createAgent());
+  rebuildAgentGrid();
+}
+
+function getIdleAgent() { return S.agents.find(a => a.status === 'idle') || null; }
+
+function shouldStartLunch(agent) {
+  if (currentPhase().key !== 'lunch' || agent.lunchTaken || agent.status === 'lunch') return false;
+  return lunchElapsedSec() >= agent.lunchSlot * GAME_RULES.lunchDurationSec;
+}
+
+function startLunch(agent) {
+  agent.status = 'lunch';
+  agent.timer = GAME_RULES.lunchDurationSec;
+  agent.maxTimer = GAME_RULES.lunchDurationSec;
+  agent.lunchTaken = true;
+  addLog(`A${agent.id.toString().padStart(2, '0')} started lunch`, 'white');
+}
+
+function updateLunchCoverage() {
+  if (currentPhase().key !== 'lunch') return;
+  for (const agent of S.agents) {
+    if (agent.status === 'idle' && shouldStartLunch(agent)) startLunch(agent);
+  }
+}
+
+function shouldStartBreak(agent) {
+  if (agent.status !== 'idle') return false;
+  const phase = currentPhase();
+  if (phase.key === 'morning' && !agent.break1Taken) {
+    const elapsed = S.simTime - morningPhaseStartSec();
+    return elapsed >= GAME_RULES.morningBreakOffsetSec + agent.breakSlot * GAME_RULES.breakDurationSec;
+  }
+  if (phase.key === 'evening' && !agent.break2Taken) {
+    const elapsed = S.simTime - eveningPhaseStartSec();
+    return elapsed >= GAME_RULES.eveningBreakOffsetSec + agent.breakSlot * GAME_RULES.breakDurationSec;
+  }
+  return false;
+}
+
+function startBreak(agent) {
+  agent.status = 'break';
+  agent.timer = GAME_RULES.breakDurationSec;
+  agent.maxTimer = GAME_RULES.breakDurationSec;
+  const phase = currentPhase();
+  if (phase.key === 'morning') agent.break1Taken = true;
+  else if (phase.key === 'evening') agent.break2Taken = true;
+  addLog(`A${agent.id.toString().padStart(2, '0')} started break`, 'white');
+}
+
+function updateBreakCoverage() {
+  const phase = currentPhase();
+  if (phase.key !== 'morning' && phase.key !== 'evening') return;
+  for (const agent of S.agents) {
+    if (shouldStartBreak(agent)) startBreak(agent);
+  }
+}
+
+function removableAgentIndex() {
+  if (S.numAgents <= GAME_RULES.minAgents) return -1;
+  const overflowIdleIdx = [...S.agents].reverse().findIndex(a => a.status === 'idle' && a.isOverflow);
+  if (overflowIdleIdx !== -1) return S.agents.length - 1 - overflowIdleIdx;
+  const coreIdleIdx = [...S.agents].reverse().findIndex(a => a.status === 'idle' && !a.isOverflow);
+  if (coreIdleIdx !== -1 && S.numAgents > GAME_RULES.minAgents) return S.agents.length - 1 - coreIdleIdx;
+  return -1;
+}
+
+function activatePendingAgents() {
+  let arrived = 0;
+  while (S.pendingAgents.length > 0 && S.pendingAgents[0].readyAt <= S.simTime) {
+    S.pendingAgents.shift();
+    const isOverflow = S.numAgents >= GAME_RULES.initialAgents;
+    S.agents.push(createAgent(isOverflow));
+    S.numAgents++;
+    arrived++;
+  }
+  if (arrived > 0) {
+    $('agent-count-display').textContent = S.numAgents;
+    rebuildAgentGrid();
+    addLog(`REINFORCEMENTS ARRIVED +${arrived} -> ${S.numAgents}`, 'cyan');
+  }
+}
+
+function finishGame() {
+  if (!S.running) return;
+  recordPhaseLog(currentPhase().key);
+  S.running = false;
+  S.paused = true;
+
+  const reasons = [];
+  if (currentSL() < GAME_RULES.targetSL) reasons.push('SL MISSED');
+  const finalOcc = 1 - currentNPT();
+  if (finalOcc < GAME_RULES.occupancyRangeMin) reasons.push('OCC BELOW RANGE');
+  else if (finalOcc > GAME_RULES.occupancyRangeMax) reasons.push('OCC ABOVE RANGE');
+
+  const reasonText = [];
+  if (reasons.includes('SL MISSED')) reasonText.push('Staffing decisions lagged and SL fell short of 80%.');
+  if (reasons.includes('OCC BELOW RANGE')) {
+    reasonText.push(
+      S.lunchHireCount > 0
+        ? 'Scrambled to ADD during LUNCH, and Occupancy fell below the lower bound (70%) in the afternoon.'
+        : S.sawEarlyOverstaffing
+        ? 'Overstaffed early: Occupancy fell below the lower bound (70%) and AHT ran slightly slow.'
+        : 'Too many agents on the floor: Occupancy fell below the lower bound (70%) and AHT ran slightly slow.'
+    );
+  }
+  if (reasons.includes('OCC ABOVE RANGE')) {
+    reasonText.push(`Understaffed: Occupancy exceeded the upper bound (90%) and the AHT penalty (×${GAME_RULES.ahtPenaltyHigh.toFixed(2)}) accumulated. ADD was applied too late.`);
+  }
+
+  const forecasts = S.lastLandingForecasts || forecastBundle();
+  const occRangeLabel = `${Math.round(GAME_RULES.occupancyRangeMin*100)}-${Math.round(GAME_RULES.occupancyRangeMax*100)}%`;
+  const summary = reasons.length === 0
+    ? `Completed the 9-hour training run while holding both SL ≥ ${Math.round(GAME_RULES.targetSL*100)}% and Occupancy ${occRangeLabel}.`
+    : reasonText.join(' ').trim();
+  const modelSummary = `Final SL ${fmtPct(currentSL())} / Occupancy ${fmtPct(finalOcc)} (target ${occRangeLabel})`;
+
+  setResult(reasons.length === 0 ? 'ACHIEVED' : 'MISSED', reasons, summary, modelSummary, forecasts);
+  addLog(reasons.length === 0 ? 'TRAINING OBJECTIVE MET' : `TRAINING OBJECTIVE NOT MET: ${reasons.join(' / ')}`, reasons.length === 0 ? 'green' : 'red');
+  renderResultPanel();
+}
+
+function scheduleArrival() {
+  const lambda = currentCallsPerHour() / 3600;
+  S.nextArrival = S.simTime + expRand(1 / Math.max(lambda, 1e-9));
+}
+
+function spawnCall() {
+  S.totalCalls++;
+  const id = ++S.callId;
+  const patience = CFG.patienceSec * (0.4 + Math.random() * 1.2);
+  const agent = getIdleAgent();
+  if (agent) { answerCall(agent, id, 0); return; }
+  S.queue.push({ id, waitTime: 0, patience });
+  if (S.queue.length % 10 === 0) addLog(`QUEUE: ${S.queue.length} calls waiting`, 'red');
+}
+
+function answerCall(agent, callId, waitTime) {
+  const agentAhtSec = CFG.ahtSec * (agent.ahtMul || 1) * (agent.isOverflow ? GAME_RULES.overflowAhtMultiplier : 1) * currentOccupancyAhtMultiplier();
+  const svc = lognormalRand(agentAhtSec * currentFatigueMultiplier(), CFG.ahtSigma);
+  agent.status = 'ringing';
+  agent.timer = CFG.ringTimeSec;
+  agent.maxTimer = CFG.ringTimeSec;
+  agent._svcTime = Math.max(15, Math.min(svc, agentAhtSec * 3));
+  agent._callWait = waitTime;
+  S.totalAnswered++;
+  S.totalWaitSum += waitTime;
+  S.totalHandleSec += agent._svcTime;
+  if (waitTime <= CFG.slTimeSec) S.totalAnsweredInSL++;
+  addLog(
+    `A${agent.id.toString().padStart(2, '0')} answered #${callId.toString().padStart(4, '0')} (${waitTime.toFixed(1)}s)`,
+    waitTime <= CFG.slTimeSec ? 'green' : 'orange'
+  );
+}
+
+function simStep(dt) {
+  activatePendingAgents();
+
+  {
+    const ready = [], waiting = [];
+    for (const r of S.redialQueue) {
+      (r.redialAt <= S.simTime ? ready : waiting).push(r);
+    }
+    S.redialQueue = waiting;
+    for (const r of ready) {
+      S.totalRedials++;
+      S.totalCalls++;
+      const patience = CFG.patienceSec * (0.4 + Math.random() * 1.2);
+      const agent = getIdleAgent();
+      if (agent) {
+        answerCall(agent, r.id, 0);
+      } else {
+        S.queue.push({ id: r.id, waitTime: 0, patience });
+      }
+      if (S.totalRedials === 1 || S.totalRedials % 5 === 0) {
+        addLog(`REDIAL: ${S.totalRedials} call-backs so far`, 'yellow');
+      }
+    }
+  }
+
+  if (!S.midpointForecasts && S.simTime >= GAME_RULES.gameDurationSec * 0.75) {
+    S.midpointForecasts = forecastBundle();
+  }
+  const activeAgents = S.agents.filter(a => a.status === 'busy' || a.status === 'ringing').length;
+  const wrapAgents = S.agents.filter(a => a.status === 'wrap').length;
+  const breakAgents = S.agents.filter(a => a.status === 'break').length;
+  const staffedAgents = S.agents.filter(a => a.status !== 'lunch' && a.status !== 'break').length;
+  S.totalBusyAgentSec += activeAgents * dt;
+  S.totalWrapSec += wrapAgents * dt;
+  S.totalBreakSec += breakAgents * dt;
+  S.totalStaffedAgentSec += staffedAgents * dt;
+  S.totalQueueDepthSec += S.queue.length * dt;
+  S.totalAgentSec += S.agents.length * dt;
+  // Per-call billing model: cost accrues only during idle / wrap / break.
+  // busy/ringing are covered by per-call billing; lunch is unpaid.
+  const payableAgents = S.agents.filter(a => a.status === 'idle' || a.status === 'wrap' || a.status === 'break').length;
+  S.totalCost += payableAgents * GAME_RULES.costPerAgentPerSec * dt;
+  if (!S.sawEarlyOverstaffing && isEarlyOverstaffed()) {
+    S.sawEarlyOverstaffing = true;
+    addLog('OVERSTAFFED EARLY: occupancy pacing below range', 'orange');
+  }
+
+  // Arrivals: per-step Bernoulli using the current (possibly ramping) rate.
+  // This correctly handles OPENING (0→180/hr) and CLOSING (150→60/hr) ramps.
+  const arrivalRate = currentCallsPerHour() / 3600;
+  if (arrivalRate > 0 && Math.random() < arrivalRate * dt) spawnCall();
+
+  for (const agent of S.agents) {
+    switch (agent.status) {
+      case 'ringing':
+        agent.timer -= dt;
+        if (agent.timer <= 0) { agent.status = 'busy'; agent.timer = agent._svcTime; agent.maxTimer = agent._svcTime; }
+        break;
+      case 'busy':
+        agent.timer -= dt;
+        if (agent.timer <= 0) {
+          agent.handled++;
+          agent.status = 'wrap';
+          agent.timer = Math.max(10, CFG.wrapSec + (Math.random() - 0.5) * 10);
+          agent.maxTimer = agent.timer;
+        }
+        break;
+      case 'wrap':
+        agent.timer -= dt;
+        if (agent.timer <= 0) {
+          agent.status = 'idle';
+          agent.timer = 0;
+          if (shouldStartLunch(agent)) startLunch(agent);
+          else if (shouldStartBreak(agent)) startBreak(agent);
+        }
+        break;
+      case 'lunch':
+        agent.timer -= dt;
+        if (agent.timer <= 0) { agent.status = 'idle'; agent.timer = 0; }
+        break;
+      case 'break':
+        agent.timer -= dt;
+        if (agent.timer <= 0) { agent.status = 'idle'; agent.timer = 0; }
+        break;
+    }
+  }
+
+  updateLunchCoverage();
+  updateBreakCoverage();
+
+  const alive = [];
+  for (const call of S.queue) {
+    call.waitTime += dt;
+    if (call.waitTime >= call.patience) {
+      S.totalAbandoned++;
+      addLog(`CALL #${call.id.toString().padStart(4, '0')} abandoned`, 'red');
+      if (Math.random() < CFG.redial) {
+        const delay = expRand(CFG.redialMeanSec);
+        S.redialQueue.push({ id: ++S.callId, redialAt: S.simTime + delay });
+      }
+    } else {
+      alive.push(call);
+    }
+  }
+  S.queue = alive;
+
+  while (S.queue.length > 0) {
+    const agent = getIdleAgent();
+    if (!agent) break;
+    const call = S.queue.shift();
+    answerCall(agent, call.id, call.waitTime);
+  }
+
+  if (cumulativeOcc() > GAME_RULES.occDangerThreshold) S.totalOccDangerSec += dt;
+
+  // Rolling sample for the "actual answered" trail on the forecast chart.
+  if (S.simTime - S.lastAnsweredSampleTime >= 30) {
+    S.answeredSamples.push({ t: S.simTime, answered: S.totalAnswered, answeredInSL: S.totalAnsweredInSL, offered: S.totalCalls });
+    S.lastAnsweredSampleTime = S.simTime;
+  }
+
+  if (S.simTime >= GAME_RULES.gameDurationSec) finishGame();
+}
+
+function rebuildAgentGrid() {
+  const grid = $('agent-grid');
+  const count = S.agents.length;
+  const cols = count <= 12 ? 3 : count <= 20 ? 4 : count <= 30 ? 5 : 6;
+  grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+  while (grid.children.length < count) {
+    const card = document.createElement('div');
+    card.className = 'agent-card idle';
+    card.innerHTML =
+      '<div class="a-id"></div>' +
+      '<div class="a-status"></div>' +
+      '<div class="a-bar"><div class="a-fill" style="width:0%"></div></div>' +
+      '<div class="a-timer"></div>';
+    grid.appendChild(card);
+  }
+  while (grid.children.length > count) grid.removeChild(grid.lastChild);
+}
+
+function renderAgents() {
+  const grid = $('agent-grid');
+  let busy = 0, idle = 0, wrap = 0, lunch = 0, brk = 0;
+  S.agents.forEach((agent, index) => {
+    const card = grid.children[index];
+    if (!card) return;
+    card.className = `agent-card ${agent.status}`;
+    const idPrefix = agent.isOverflow ? 'EX' : 'A';
+    card.querySelector('.a-id').textContent = `${idPrefix}${agent.id.toString().padStart(2, '0')}`;
+    let label = 'IDLE', pct = 0, timer = '';
+    if (agent.status === 'ringing') {
+      label = 'RING'; pct = 100; timer = '—'; busy++;
+    } else if (agent.status === 'busy') {
+      label = 'BUSY'; pct = Math.max(0, (agent.timer / agent.maxTimer) * 100); timer = fmtDur(agent.timer); busy++;
+    } else if (agent.status === 'wrap') {
+      label = 'WRAP'; pct = Math.max(0, (agent.timer / agent.maxTimer) * 100); timer = fmtDur(agent.timer); wrap++;
+    } else if (agent.status === 'lunch') {
+      label = 'LUNCH'; pct = Math.max(0, (agent.timer / agent.maxTimer) * 100); timer = fmtDur(agent.timer); lunch++;
+    } else if (agent.status === 'break') {
+      label = 'BREAK'; pct = Math.max(0, (agent.timer / agent.maxTimer) * 100); timer = fmtDur(agent.timer); brk++;
+    } else {
+      idle++;
+    }
+    card.querySelector('.a-status').textContent = label;
+    card.querySelector('.a-fill').style.width = `${pct}%`;
+    card.querySelector('.a-timer').textContent = timer;
+  });
+  $('busy-count').textContent = busy;
+  $('idle-count').textContent = idle;
+  $('wrap-count').textContent = wrap;
+  $('lunch-count').textContent = lunch;
+  $('break-count').textContent = brk;
+}
+
+function renderQueue() {
+  const qLen = S.queue.length;
+  const display = S.queue.slice(0, CFG.maxQueueDisplay);
+  const html = display.map(call => {
+    const pct = Math.max(0, 1 - call.waitTime / call.patience);
+    const col = pct > 0.55 ? '#00ff41' : pct > 0.25 ? '#ffff00' : '#ff3333';
+    const icon = pct < 0.2 ? '!' : '•';
+    return `<div class="call-icon">` +
+      `<div class="call-phone" style="color:${col}">${icon}</div>` +
+      `<div class="call-pbar"><div class="call-pfill" style="width:${pct * 100}%;background:${col}"></div></div>` +
+      `</div>`;
+  }).join('');
+  const overflow = qLen > CFG.maxQueueDisplay
+    ? `<div style="color:#ff3333;font-size:9px;align-self:center">+${qLen - CFG.maxQueueDisplay} more</div>`
+    : '';
+  $('queue-calls').innerHTML = html + overflow;
+}
+
+function renderMetrics() {
+  const sl = currentSL();
+  // During OPENING all bars render grey as 'WARMING UP' (applies to SL / Occupancy / Projected SL).
+  const isWarmup = currentPhase().key === 'opening';
+  const warmupCol = 'rgba(180,200,212,0.55)';
+  const slBaseCol = sl >= 0.9 ? '#00ff41' : sl >= 0.8 ? '#cccc00' : sl >= 0.65 ? '#ff8800' : '#ff3333';
+  const slCol = isWarmup ? warmupCol : slBaseCol;
+  $('sl-bar').style.cssText = `width:${sl * 100}%;background:${slCol}`;
+  $('sl-val').textContent = fmtPct(sl);
+  $('sl-val').style.color = slCol;
+  $('sl-val').style.textShadow = isWarmup ? '' : `0 0 6px ${slCol}`;
+  const slNote = isWarmup ? 'WARMING UP' : (sl >= 0.8 ? 'ON TARGET' : sl >= 0.65 ? 'AT RISK' : 'LOW');
+  $('sl-note').textContent = slNote;
+  $('sl-note').style.color = slCol;
+
+  const forecasts = forecastBundle();
+  S.lastLandingForecasts = forecasts;
+  const selectedForecast = forecasts[S.predictionModel];
+  // (1) Show Projected SL as grey 'WARMING UP' during OPENING and for 3 minutes after each phase change.
+  const forecastInOpening = currentPhase().key === 'opening';
+  const phaseElapsedSinceStart = S.simTime - (S.phaseStartSim || 0);
+  const isForecastWarmup = forecastInOpening || phaseElapsedSinceStart < 180;
+  const forecastCol = isForecastWarmup
+    ? 'rgba(180,200,212,0.55)'
+    : (selectedForecast >= 0.8 ? '#00ffff' : selectedForecast >= 0.65 ? '#ff8800' : '#ff3333');
+  $('forecast-label').textContent = 'Projected SL';
+  $('erl-bar').style.cssText = `width:${selectedForecast * 100}%;background:${forecastCol}`;
+  $('erl-val').textContent = fmtPct(selectedForecast);
+  $('erl-val').style.color = forecastCol;
+  $('erl-val').style.textShadow = isForecastWarmup ? '' : `0 0 6px ${forecastCol}`;
+  const forecastNote = isForecastWarmup
+    ? 'WARMING UP'
+    : (selectedForecast >= 0.8 ? 'ON TRACK' : selectedForecast >= 0.65 ? 'WATCH' : 'MISS RISK');
+  $('forecast-note').textContent = forecastNote;
+  $('forecast-note').style.color = forecastCol;
+
+  // (9) Natural-recovery feedback: if SL dips but projected SL is OK, reward patience when SL recovers.
+  if (!forecastInOpening && S.totalAnswered > 15) {
+    const landingOk = selectedForecast >= GAME_RULES.targetSL;
+    if (!S.slDipActive && sl < 0.70 && landingOk) {
+      S.slDipActive = true;
+      S.slDipStartTime = S.simTime;
+      S.slDipPeakDrop = sl;
+    } else if (S.slDipActive) {
+      if (sl < S.slDipPeakDrop) S.slDipPeakDrop = sl;
+      if (sl >= GAME_RULES.targetSL) {
+        const holdMin = Math.max(1, Math.round((S.simTime - S.slDipStartTime) / 60));
+        const dropPct = Math.round(S.slDipPeakDrop * 100);
+        S.slDipActive = false;
+      addLog(`SL RECOVERED — Dipped to ${dropPct}%, returned to target in ${holdMin} min. Trusting the projection paid off.`, 'green');
+        document.body.classList.add('recovery-flash');
+        const gameEl = document.getElementById('game');
+        if (gameEl) gameEl.classList.add('recovery');
+        setTimeout(() => {
+          document.body.classList.remove('recovery-flash');
+          if (gameEl) gameEl.classList.remove('recovery');
+        }, 900);
+      }
+    }
+  }
+
+  const queueAvg = S.simTime > 0 ? S.totalQueueDepthSec / S.simTime : S.queue.length;
+
+  $('total-calls').textContent = S.totalCalls;
+  $('total-ans').textContent = S.totalAnswered;
+  const answerRate = S.totalCalls > 0 ? S.totalAnswered / S.totalCalls : 0;
+  $('answer-rate-val').textContent = fmtPct(answerRate);
+  $('answer-rate-val').style.color = '#e8f2f6';
+  $('total-sl').textContent = S.totalAnsweredInSL;
+  $('total-aband').textContent = S.totalAbandoned;
+  const redialsEl = $('total-redials');
+  if (redialsEl) redialsEl.textContent = S.totalRedials;
+  $('aht-val').textContent = S.totalAnswered > 0 ? `${(S.totalHandleSec / S.totalAnswered).toFixed(1)}s` : '0.0s';
+  $('avg-wait').textContent = S.totalAnswered > 0 ? `${(S.totalWaitSum / S.totalAnswered).toFixed(1)}s` : '0.0s';
+  const queueAvgEl = document.getElementById('queue-avg-val');
+  if (queueAvgEl) {
+    queueAvgEl.textContent = queueAvg.toFixed(1);
+    queueAvgEl.style.color = queueAvg > 5 ? '#ff3333' : queueAvg > 2 ? '#ff8800' : '#00ff41';
+  }
+  // Show the AHT penalty state in the header (lights up when Occupancy is outside the target band).
+  const occAhtMul = currentOccupancyAhtMultiplier();
+  if (occAhtMul >= GAME_RULES.ahtPenaltyHigh) {
+    $('fatigue-header').textContent = `OVERLOAD ×${occAhtMul.toFixed(2)}`;
+    $('fatigue-header').style.color = '#ff3333';
+    $('fatigue-header').style.textShadow = '0 0 6px #ff3333';
+  } else if (occAhtMul >= GAME_RULES.ahtPenaltyLow) {
+    $('fatigue-header').textContent = `SLOW ×${occAhtMul.toFixed(2)}`;
+    $('fatigue-header').style.color = '#dba94e';
+    $('fatigue-header').style.textShadow = '0 0 6px #dba94e';
+  } else {
+    $('fatigue-header').textContent = 'NORMAL';
+    $('fatigue-header').style.color = '#00ff41';
+    $('fatigue-header').style.textShadow = '0 0 6px #00ff41';
+  }
+
+  const occupancyPct = 1 - currentNPT();
+  // The Occupancy bar / value / note are all evaluated against the cumulative Occupancy so far (not the landing projection).
+  // Decide the note (occNote) first, then reuse its color for bar and value (keeps alert color and bar color consistent).
+  const occMin = GAME_RULES.occupancyRangeMin;
+  const occMax = GAME_RULES.occupancyRangeMax;
+  let occNote;
+  if (isWarmup) {
+    occNote = { label: 'WARMING UP', color: '#7ea8ff' };
+  } else if (occupancyPct < occMin) {
+    occNote = { label: 'BELOW RANGE', color: '#ff3333' };
+  } else if (occupancyPct > occMax) {
+    occNote = { label: 'ABOVE RANGE', color: '#ff3333' };
+  } else {
+    const margin = Math.min(occupancyPct - occMin, occMax - occupancyPct);
+    occNote = margin < 0.03 ? { label: 'TIGHT', color: '#ff8800' } : { label: 'IN RANGE', color: '#00ff41' };
+  }
+  const prodCol = isWarmup ? warmupCol : occNote.color;
+  $('cost-bar').style.cssText = `width:${Math.min(100, occupancyPct * 100)}%;background:${prodCol}`;
+  $('cost-val').textContent = fmtPct(occupancyPct);
+  $('cost-val').style.color = prodCol;
+  $('cost-val').style.textShadow = isWarmup ? '' : `0 0 6px ${prodCol}`;
+  $('cost-note').textContent = occNote.label;
+  $('cost-note').style.color = occNote.color;
+
+  const canReduceNow = agentDelta >= 0 || removableAgentIndex() !== -1;
+  $('btn-apply').disabled = !canAdjustAgents() || !S.running || agentDelta === 0 || !canReduceNow;
+
+  const applyLabel = $('btn-apply-label');
+  if (applyLabel) {
+    if (S.finalResult !== 'RUNNING') {
+      applyLabel.textContent = 'SHIFT COMPLETE';
+    } else if (!canAdjustAgents()) {
+      const adjustRemain = Math.max(0, S.nextAdjustTime - S.simTime);
+      applyLabel.textContent = `NEXT ADJUST ${fmtDur(adjustRemain)}`;
+    } else if (agentDelta === 0) {
+      applyLabel.textContent = 'APPLY';
+    } else if (agentDelta > 0) {
+      applyLabel.textContent = `ADD +${agentDelta}`;
+    } else {
+      applyLabel.textContent = `REDUCE ${agentDelta}`;
+    }
+  }
+}
+
+function renderClock() {
+  const remain = Math.max(0, GAME_RULES.gameDurationSec - S.simTime);
+  const phase = currentPhase();
+  if (lastPhaseKey !== null && phase.key !== lastPhaseKey) {
+    recordPhaseLog(lastPhaseKey);
+    phaseChangeTs = performance.now();
+    S.phaseStartSim = S.simTime;
+    const fl = $('phase-flash');
+    fl.classList.add('active');
+    setTimeout(() => fl.classList.remove('active'), 350);
+  addLog(`PHASE — ${phase.label}  ${phase.callsPerHour}/hr`, 'yellow');
+  }
+  lastPhaseKey = phase.key;
+    $('sim-clock').textContent = `TIME REMAINING: ${fmtTime(remain)}`;
+
+}
+
+function renderForecastChart() {
+  const svg = $('forecast-chart');
+  const width = 560, height = 138;
+  const pad = { left: 18, right: 8, top: 18, bottom: 26 };
+  const innerW = width - pad.left - pad.right;
+  const innerH = height - pad.top - pad.bottom;
+  const maxCalls = Math.max(...SCENARIO_PHASES.map(p => p.callsPerHour)) * 1.08;
+
+  // Piecewise-exact Forecast polyline: 2 vertices per phase (start + end).
+  // Flat phases -> horizontal segment; OPENING/CLOSING ramps -> diagonal; phase boundaries -> vertical jump.
+  // This matches the true Forecast function (SCENARIO_PHASES) with zero information loss.
+  const points = [];
+  SCENARIO_PHASES.forEach((phase, index) => {
+    const startSec = phaseStartSec(index);
+    const endSec = startSec + phase.durationSec;
+    const startVal = phase.callsPerHour;
+    const endVal = phase.rampTo !== undefined ? phase.rampTo : phase.callsPerHour;
+    const xStart = pad.left + (startSec / GAME_RULES.gameDurationSec) * innerW;
+    const xEnd = pad.left + (endSec / GAME_RULES.gameDurationSec) * innerW;
+    const yStart = pad.top + innerH - (startVal / maxCalls) * innerH;
+    const yEnd = pad.top + innerH - (endVal / maxCalls) * innerH;
+    points.push({ x: xStart, y: yStart, phase });
+    points.push({ x: xEnd, y: yEnd, phase });
+  });
+
+  const path = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+  const areaPath = `${path} L${(pad.left + innerW).toFixed(1)},${(pad.top + innerH).toFixed(1)} L${pad.left},${(pad.top + innerH).toFixed(1)} Z`;
+  const currentX = pad.left + (Math.min(S.simTime, GAME_RULES.gameDurationSec) / GAME_RULES.gameDurationSec) * innerW;
+  let currentY = points[points.length - 1].y;
+  for (let i = 0; i < points.length - 1; i++) {
+    if (currentX >= points[i].x && currentX <= points[i + 1].x) {
+      const t = (currentX - points[i].x) / (points[i + 1].x - points[i].x);
+      currentY = points[i].y + t * (points[i + 1].y - points[i].y);
+      break;
+    }
+  }
+
+  const _curPh = currentPhase();
+  const _nextPh = nextPhase();
+  let labels = '';
+  SCENARIO_PHASES.forEach((phase, index) => {
+    if (phase.key === 'opening') return;
+    const x = pad.left + (phaseStartSec(index) / GAME_RULES.gameDurationSec) * innerW;
+    const isCur = phase.key === _curPh.key;
+    const isNext = _nextPh && phase.key === _nextPh.key;
+    const fill = isCur ? '#b45309' : isNext ? '#2563eb' : 'rgba(71,85,105,0.48)';
+    const weight = (isCur || isNext) ? '600' : '400';
+    labels += `<text x="${x.toFixed(1)}" y="${(pad.top - 5).toFixed(1)}" font-size="10" font-weight="${weight}" fill="${fill}">${phase.label.split(' ')[0]}</text>`;
+  });
+  let yAxis = '';
+  [0, 90, 180].forEach(val => {
+    const y = pad.top + innerH - (val / maxCalls) * innerH;
+    yAxis += `<line x1="${pad.left}" y1="${y.toFixed(1)}" x2="${pad.left + innerW}" y2="${y.toFixed(1)}" stroke="rgba(148,163,184,0.28)" stroke-width="1"></line>`;
+    yAxis += `<text x="${(pad.left - 4).toFixed(1)}" y="${(y + 3).toFixed(1)}" font-size="8" fill="rgba(71,85,105,0.72)" text-anchor="end">${val}</text>`;
+  });
+
+  // Build the "actual Answered rate" trail. Use a 5-min rolling window so the line
+  // reads cleanly against the PLAN curve instead of bouncing on Poisson noise.
+  const actualSamples = S.answeredSamples || [];
+  const actualPoints = [];
+  const windowSec = 900;     // 15-minute rolling window. Wider than 5 min to smooth Poisson variance:
+                              // at low SL the 5-min count frequently hit 0 (P(0)≈14% when mean=2 events), making the line appear flat at 0.
+  const minWindowSec = 300;  // require >=5 min of data before plotting a point
+  let lastActualRate = 0;
+  for (let i = 0; i < actualSamples.length; i++) {
+    const cur = actualSamples[i];
+    // Find the earliest sample that still sits within the rolling window.
+    let earlier = cur;
+    for (let j = i - 1; j >= 0; j--) {
+      if (cur.t - actualSamples[j].t <= windowSec) {
+        earlier = actualSamples[j];
+      } else {
+        break;
+      }
+    }
+    const elapsedSec = cur.t - earlier.t;
+    if (elapsedSec < minWindowSec) continue;
+    // Plot the In-SL count within the 15-min rolling window (莉ｶ謨ｰ / 15 min). Same Y axis as PLAN.
+  const count = (cur.answeredInSL || 0) - (earlier.answeredInSL || 0);
+    lastActualRate = count;
+    const ax = pad.left + (cur.t / GAME_RULES.gameDurationSec) * innerW;
+    const ay = pad.top + innerH - (Math.min(count * 4, maxCalls * 1.05) / maxCalls)  /* Actual: scale 15-min count to hourly rate to share PLAN's calls/hr Y-axis */ * innerH;
+    actualPoints.push({ x: ax, y: ay });
+  }
+  const actualPath = actualPoints.length >= 2
+    ? actualPoints.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')
+    : '';
+  const actualNow = actualPoints.length > 0 ? actualPoints[actualPoints.length - 1] : null;
+
+  svg.innerHTML = `
+    <rect x="0" y="0" width="${width}" height="${height}" fill="rgba(248,250,252,0.92)"></rect>
+    ${yAxis}
+    <line x1="${pad.left}" y1="${pad.top + innerH}" x2="${pad.left + innerW}" y2="${pad.top + innerH}" stroke="rgba(100,116,139,0.34)" stroke-width="1"></line>
+    <line x1="${pad.left}" y1="${pad.top}" x2="${pad.left}" y2="${pad.top + innerH}" stroke="rgba(100,116,139,0.34)" stroke-width="1"></line>
+    <path d="${areaPath}" fill="rgba(109,191,194,0.08)"></path>
+    <path d="${path}" fill="none" stroke="#6dbfc2" stroke-width="1.5"></path>
+    <line x1="${currentX.toFixed(1)}" y1="${(pad.top + 4).toFixed(1)}" x2="${currentX.toFixed(1)}" y2="${(pad.top + innerH - 2).toFixed(1)}" stroke="#dba94e" stroke-width="1.2" stroke-dasharray="3 2" opacity="0.85"></line>
+    <circle cx="${currentX.toFixed(1)}" cy="${currentY.toFixed(1)}" r="3" fill="#dba94e"></circle>
+    ${actualPath ? `<path d="${actualPath}" fill="none" stroke="#00ff41" stroke-width="1.6" opacity="0.9"></path>` : ''}
+    ${actualNow ? `<circle cx="${actualNow.x.toFixed(1)}" cy="${actualNow.y.toFixed(1)}" r="2.8" fill="#00ff41"></circle>` : ''}
+    ${labels}
+  `;
+
+  const curEl = $('forecast-phase-cur');
+  if (curEl) {
+    const curPhase = currentPhase();
+    const curCallsRound = Math.round(currentCallsPerHour());
+    curEl.innerHTML = `<span style="color:#dba94e;font-weight:600">${curPhase.label}</span>`;
+  }
+  const next = nextPhase();
+  const nextEl = $('forecast-phase-next');
+  if (nextEl) {
+    if (next) {
+      const nextCalls = next.rampTo !== undefined ? (next.callsPerHour + next.rampTo) / 2 : next.callsPerHour;
+      nextEl.innerHTML = `<span style="color:#e8f2f6">${next.label}</span>`;
+    } else {
+      nextEl.innerHTML = `<span style="color:var(--ink-dim)">END OF DAY</span>`;
+    }
+  }
+}
+
+function renderAlert() {
+  const bar = $('alert-bar');
+  const sl = currentSL();
+  const qLen = S.queue.length;
+  let msg = '', col = '';
+
+  const inOpening = currentPhase().key === 'opening';
+  if (S.finalResult === 'ACHIEVED') { msg = 'TRAINING OBJECTIVE MET'; col = '#16a34a'; }
+  else if (S.finalResult === 'MISSED') { msg = S.finalReasons[0] || 'TRAINING OBJECTIVE NOT MET'; col = '#dc2626'; }
+  else if (inOpening) { msg = 'WARMING UP — PREPARING FOR MORNING RUSH'; col = '#7ea8ff'; }
+  else if (isEarlyOverstaffed()) { msg = 'OVERSTAFFED EARLY'; col = '#ff8800'; }
+  else if ((1 - currentNPT()) < GAME_RULES.occupancyRangeMin) { msg = 'OCCUPANCY BELOW RANGE — SLIGHT AHT PENALTY'; col = '#ff3333'; }
+  else if ((1 - currentNPT()) > GAME_RULES.occupancyRangeMax) { msg = 'OCCUPANCY ABOVE RANGE — HEAVY AHT PENALTY'; col = '#ff3333'; }
+  else if (GAME_RULES.fatigueEnabled && cumulativeOcc() > GAME_RULES.occDangerThreshold) { msg = 'HIGH OCCUPANCY RISK'; col = '#ff8800'; }
+  else if (qLen >= 40) { msg = `CRITICAL QUEUE: ${qLen} CALLS WAITING`; col = '#ff3333'; }
+  else if (qLen >= 20) { msg = `HIGH QUEUE: ${qLen} CALLS WAITING`; col = '#ff8800'; }
+  else if (sl < 0.6 && S.totalAnswered > 15) { msg = 'SERVICE LEVEL CRITICAL'; col = '#ff3333'; }
+  else if (sl < 0.8 && S.totalAnswered > 10) { msg = 'SERVICE LEVEL LOW'; col = '#ff8800'; }
+  else if (sl >= 0.95 && S.totalAnswered > 10) { msg = 'EXCELLENT SERVICE LEVEL'; col = '#00ff41'; }
+  else if (sl >= 0.9 && S.totalAnswered > 10) { msg = 'GOOD SERVICE LEVEL'; col = '#00cc33'; }
+
+  bar.textContent = msg;
+  bar.style.color = col;
+  bar.style.textShadow = col ? `0 0 8px ${col}` : '';
+
+  document.getElementById('game').classList.toggle('crisis', S.queue.length >= 30 && S.finalResult === 'RUNNING');
+  document.body.classList.toggle('occ-danger', GAME_RULES.fatigueEnabled && cumulativeOcc() > GAME_RULES.occDangerThreshold && S.finalResult === 'RUNNING');
+}
+
+function renderResultPanel() {
+  const title = $('result-title');
+  const body  = $('result-body');
+  const model = $('result-model');
+  const accDiv = $('result-accuracy');
+  title.textContent = 'Operational Guidance';
+  title.className = '';
+
+  if (S.finalResult === 'RUNNING') {
+    const landingForecast = projectedLandingSL(S.predictionModel, Math.max(1, S.agents.length));
+    const qLen = S.queue.length;
+    const pace = budgetPaceStatus();
+    const occ = cumulativeOcc();
+    const sl = currentSL();
+    const inOpening = currentPhase().key === 'opening';
+    const advance = phaseAdvanceHint();
+    let level = 'ok';
+    let hint = '';
+    if (inOpening) {
+      level = 'ok';
+      hint = 'OPENING phase. Calls ramp to 180/hr in MORNING. Compare the recommended staffing on the CALL VOLUME FORECAST with your current roster to decide whether to ADD. A low Occupancy reading here is expected.';
+    } else if (advance) {
+      level = advance.level;
+      hint = advance.text;
+    } else if (sl < GAME_RULES.targetSL && S.totalAnswered > 15 && landingForecast >= GAME_RULES.targetSL) {
+      level = 'ok';
+      hint = `SL has temporarily dipped to ${Math.round(sl*100)}%, but the landing projection (${Math.round(landingForecast*100)}%) is still on target. Hold staffing steady — trust the projection.`;
+    } else if ((1 - currentNPT()) < GAME_RULES.occupancyRangeMin) {
+      level = 'critical';
+      hint = `Occupancy is below the lower bound (${Math.round(GAME_RULES.occupancyRangeMin*100)}%) — overstaffed. REDUCE headcount. AHT is also slightly slow (×${GAME_RULES.ahtPenaltyLow.toFixed(2)}).`;
+    } else if ((1 - currentNPT()) > GAME_RULES.occupancyRangeMax) {
+      level = 'critical';
+      hint = `Occupancy is above the upper bound (${Math.round(GAME_RULES.occupancyRangeMax*100)}%) — overloaded. AHT is markedly slow (×${GAME_RULES.ahtPenaltyHigh.toFixed(2)}). ADD headcount.`;
+    } else if (qLen >= 30) {
+      level = 'critical';
+      hint = `Queue has grown to ${qLen} calls. Consider ADD immediately.`;
+    } else if (landingForecast < GAME_RULES.targetSL - 0.05) {
+      level = 'critical';
+      hint = 'Projected SL is well below target. Consider ADD.';
+    } else if (landingForecast < GAME_RULES.targetSL) {
+      level = 'warn';
+      hint = 'Projected SL is below target. Consider ADD.';
+    } else if (isEarlyOverstaffed()) {
+      level = 'warn';
+      hint = 'Overstaffed early — Occupancy is pacing below the lower bound. Consider REDUCE.';
+    } else if (pace.label === 'BELOW RANGE') {
+      level = 'warn';
+      hint = 'Occupancy is pacing to land below the lower bound (overstaffed). REDUCE headcount.';
+    } else if (pace.label === 'ABOVE RANGE') {
+      level = 'warn';
+      hint = 'Occupancy is pacing to land above the upper bound (overloaded). ADD headcount to avoid the AHT penalty.';
+    } else if (GAME_RULES.fatigueEnabled && occ > GAME_RULES.occDangerThreshold) {
+      level = 'warn';
+      hint = 'High utilization is raising fatigue risk. Consider ADD.';
+    } else if (qLen >= 10) {
+      level = 'warn';
+      hint = `Queue holds ${qLen} calls. Watch for SL erosion.`;
+    } else if (sl < GAME_RULES.targetSL && S.totalAnswered > 10) {
+      level = 'warn';
+      hint = 'Current SL is below target. Consider ADD before the next phase.';
+    } else if (pace.label === 'TIGHT') {
+      level = 'warn';
+      hint = 'Occupancy landing is tight. Any further headcount increase should be cautious.';
+    } else {
+      level = 'ok';
+      hint = 'SL and Occupancy are both on track. Maintain this pace.';
+    }
+    const levelColors = { ok: '#00ff41', warn: '#dba94e', critical: '#ff3333' };
+    const levelIcons = { ok: 'OK', warn: 'NOTE', critical: 'ALERT' };
+    const hintCol = levelColors[level];
+    const hintIcon = levelIcons[level];
+    body.innerHTML = `<span style="color:${hintCol}">${hintIcon} GUIDANCE:</span> ${hint}`;
+    accDiv.style.display = 'none';
+    return;
+  }
+
+  body.textContent = S.finalSummary;
+
+  if (S.midpointForecasts) {
+    const actual = currentSL();
+    const entries = Object.entries(S.midpointForecasts)
+      .map(([key, val]) => ({ key, err: Math.abs(val - actual) }))
+      .sort((a, b) => a.err - b.err);
+    const best = entries[0];
+    accDiv.textContent = '6H FORECAST ACCURACY — ' +
+      entries.map(e => `${modelLabel(e.key)} ﾂｱ${(e.err * 100).toFixed(1)}%`).join(' / ') +
+      `  BEST: ${modelLabel(best.key)}`;
+    accDiv.style.display = 'block';
+  } else {
+    accDiv.style.display = 'none';
+  }
+}
+
+function renderPhaseTable() {
+  const el = $('phase-table');
+  if (!el) return;
+  const curPhase = currentPhase();
+
+  let html = `<div class="pt-row pt-head"><span>PHASE</span><span>CALLS</span><span>AGT</span><span>SL</span><span>ABAND</span><span>AHT</span><span>WAIT</span></div>`;
+
+  SCENARIO_PHASES.forEach(phase => {
+    const log = phaseLog.find(p => p.key === phase.key);
+    if (log) {
+      const slCol = log.sl >= GAME_RULES.targetSL ? '#6dbfc2' : '#d95f5f';
+      html += `<div class="pt-row"><span style="color:${slCol}">${phase.label}</span><span style="color:var(--ink)">${log.calls}</span><span style="color:var(--ink)">${(log.avgAgents || 0).toFixed(1)}</span><span style="color:${slCol}">${(log.sl * 100).toFixed(0)}%</span><span style="color:var(--ink)">${log.abandoned}</span><span style="color:var(--ink)">${log.aht.toFixed(0)}s</span><span style="color:var(--ink)">${log.avgWait.toFixed(1)}s</span></div>`;
+    } else if (phase.key === curPhase.key && S.finalResult === 'RUNNING') {
+      const curCalls = S.totalCalls - phaseSnap.calls;
+      const curAns   = S.totalAnswered - phaseSnap.answered;
+      const curSL    = curAns > 0 ? (S.totalAnsweredInSL - phaseSnap.answeredInSL) / curAns : 1;
+      const curAband = S.totalAbandoned - phaseSnap.abandoned;
+      const curAht   = curAns > 0 ? (S.totalHandleSec - phaseSnap.handleSec) / curAns : 0;
+      const curWait  = curAns > 0 ? (S.totalWaitSum - phaseSnap.waitSum) / curAns : 0;
+      const curDeltaT = S.simTime - phaseSnap.t;
+      const curAgents = curDeltaT > 0 ? (S.totalAgentSec - phaseSnap.agentSec) / curDeltaT : S.agents.length;
+      html += `<div class="pt-row"><span style="color:#7ea8ff">▶ ${phase.label}</span><span style="color:#7ea8ff">${curCalls}</span><span style="color:#7ea8ff">${curAgents.toFixed(1)}</span><span style="color:#7ea8ff">${(curSL * 100).toFixed(0)}%</span><span style="color:#7ea8ff">${curAband}</span><span style="color:#7ea8ff">${curAht.toFixed(0)}s</span><span style="color:#7ea8ff">${curWait.toFixed(1)}s</span></div>`;
+    } else {
+      html += `<div class="pt-row"><span style="color:var(--ink-dim)">${phase.label}</span><span style="color:var(--ink-dim)">--</span><span style="color:var(--ink-dim)">--</span><span style="color:var(--ink-dim)">--</span><span style="color:var(--ink-dim)">--</span><span style="color:var(--ink-dim)">--</span><span style="color:var(--ink-dim)">--</span></div>`;
+    }
+  });
+
+  el.innerHTML = html;
+}
+
+function renderLog() { /* log UI removed; logLines retained in memory for debug */ }
+
+function frame(ts) {
+  if (!S.running) return;
+  if (S.lastFrameTs === null) { S.lastFrameTs = ts; requestAnimationFrame(frame); return; }
+  const realDt = Math.min((ts - S.lastFrameTs) / 1000, 0.1);
+  S.lastFrameTs = ts;
+  if (!S.paused) {
+    const slowFactor = (ts - phaseChangeTs) < 500 ? 0.15 : 1;
+    S.simAccum += realDt * S.speed * slowFactor;
+    while (S.simAccum >= SIM_DT && S.running) {
+      S.simTime += SIM_DT;
+      simStep(SIM_DT);
+      S.simAccum -= SIM_DT;
+    }
+  }
+  renderAgents();
+  renderQueue();
+  renderMetrics();
+  renderClock();
+  renderAlert();
+  renderResultPanel();
+  renderPhaseTable();
+  renderForecastChart();
+  requestAnimationFrame(frame);
+}
+
+function startLoop() {
+  S.running = true;
+  S.lastFrameTs = null;
+  scheduleArrival();
+  requestAnimationFrame(frame);
+}
+
+function setPaused(paused) {
+  S.paused = paused;
+  $('btn-pause').textContent = S.paused ? 'RESUME' : 'PAUSE';
+}
+
+function resetAll() {
+  S.running = false;
+  S.started = false;
+  S.paused = false;
+  Object.assign(S, {
+    simTime: 0,
+    speed: GAME_RULES.defaultSpeed,
+    predictionModel: S.predictionModel,
+    numAgents: GAME_RULES.startingAgents,
+    queue: [], pendingAgents: [], callId: 0, nextAgentId: 1, nextArrival: 0,
+    totalCalls: 0, totalAnswered: 0, totalAnsweredInSL: 0, totalAbandoned: 0,
+    redialQueue: [], totalRedials: 0, totalWaitSum: 0, totalHandleSec: 0, totalCost: 0,
+    totalOccDangerSec: 0, totalBusyAgentSec: 0, totalWrapSec: 0, totalBreakSec: 0, totalStaffedAgentSec: 0, totalQueueDepthSec: 0, totalAgentSec: 0,
+    sawEarlyOverstaffing: false, lunchHireCount: 0,
+    nextAdjustTime: 0, lastFrameTs: null, simAccum: 0,
+    lastLandingForecasts: null, midpointForecasts: null,
+    phaseStartSim: 0, slDipActive: false, slDipStartTime: 0, slDipPeakDrop: 1,
+    answeredSamples: [], lastAnsweredSampleTime: -999
+  });
+  setResult('RUNNING', [], '', '', null);
+  logLines = [];
+  lastPhaseKey = null;
+  phaseChangeTs = -9999;
+  phaseLog = [];
+  phaseSnap = { answeredInSL: 0, answered: 0, abandoned: 0, cost: 0, calls: 0, handleSec: 0, waitSum: 0, agentSec: 0, t: 0 };
+  initAgents(S.numAgents);
+  $('agent-count-display').textContent = S.numAgents;
+  $('btn-pause').textContent = 'PAUSE';
+  applySpeedStop(SPEED_STOPS.indexOf(GAME_RULES.defaultSpeed));
+  setAgentDelta(0);
+  addLog('Training simulation reset.', 'green');
+  renderMetrics();
+  renderClock();
+  renderAlert();
+  renderResultPanel();
+  renderForecastChart();
+}
+
+document.querySelectorAll('[data-model]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-model]').forEach(b => b.classList.remove('model-active'));
+    btn.classList.add('model-active');
+    S.predictionModel = btn.dataset.model;
+    renderMetrics();
+    renderResultPanel();
+  });
+});
+
+const SPEED_STOPS = [1, 50, 100, 250, 500, 750, 1000];
+function applySpeedStop(idx) {
+  const clamped = Math.max(0, Math.min(SPEED_STOPS.length - 1, idx));
+  S.speed = SPEED_STOPS[clamped];
+  const slider = $('speed-slider');
+  if (slider) slider.value = String(clamped);
+  const val = $('speed-value');
+  if (val) val.textContent = `${SPEED_STOPS[clamped]}×`;
+}
+const speedSliderEl = $('speed-slider');
+if (speedSliderEl) {
+  speedSliderEl.addEventListener('input', () => applySpeedStop(Number(speedSliderEl.value)));
+}
+
+$('btn-pause').addEventListener('click', () => {
+  if (!S.started) return;
+  setPaused(!S.paused);
+});
+
+let agentDelta = 0;
+
+function setAgentDelta(n) {
+  agentDelta = Math.max(-5, Math.min(5, n));
+  renderDeltaUI();
+}
+
+function renderDeltaUI() {
+  const n = agentDelta;
+  const sign = n > 0 ? `+${n}` : `${n}`;
+  $('agent-delta-display').textContent = sign;
+  $('agent-delta-display').style.color = n > 0 ? '#00ff41' : n < 0 ? '#dba94e' : 'rgba(180,200,212,0.55)';
+  $('btn-delta-down').disabled = n <= -5;
+  $('btn-delta-up').disabled = n >= 5;
+  const label = n === 0 ? 'APPLY' : n > 0 ? `ADD +${n}` : `REDUCE ${n}`;
+  $('btn-apply-label').textContent = label;
+}
+
+function applyAgentDelta() {
+  if (!canAdjustAgents() || agentDelta === 0) return;
+  if (agentDelta > 0) {
+    const totalCommitted = S.numAgents + S.pendingAgents.length;
+    const addCount = Math.min(agentDelta, 50 - totalCommitted);
+    if (addCount <= 0) return;
+    for (let i = 0; i < addCount; i++) {
+      S.pendingAgents.push({ readyAt: S.simTime + GAME_RULES.hireLeadTimeSec });
+    }
+    if (currentPhase().key === 'lunch') S.lunchHireCount += addCount;
+    S.nextAdjustTime = S.simTime + GAME_RULES.adjustCooldownSec;
+    addLog(`REINFORCEMENTS +${addCount} ETA ${fmtDur(GAME_RULES.hireLeadTimeSec)}`, 'cyan');
+  } else {
+    const targetRemove = -agentDelta;
+    let removed = 0;
+    while (removed < targetRemove) {
+      const absIdx = removableAgentIndex();
+      if (absIdx === -1) {
+        if (removed === 0) addLog(`NO REMOVABLE IDLE AGENT (MIN ${GAME_RULES.minAgents})`, 'orange');
+        break;
+      }
+      S.agents.splice(absIdx, 1);
+      S.numAgents--;
+      removed++;
+    }
+    if (removed === 0) return;
+    S.nextAdjustTime = S.simTime + GAME_RULES.adjustCooldownSec;
+    $('agent-count-display').textContent = S.numAgents;
+    rebuildAgentGrid();
+    addLog(`AGENTS -${removed} -> ${S.numAgents}`, 'yellow');
+  }
+  setAgentDelta(0);
+}
+
+$('btn-delta-down').addEventListener('click', () => setAgentDelta(agentDelta - 1));
+$('btn-delta-up').addEventListener('click', () => setAgentDelta(agentDelta + 1));
+$('btn-apply').addEventListener('click', applyAgentDelta);
+
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return;
+  switch (e.key) {
+    case ' ':  e.preventDefault(); $('btn-pause').click(); break;
+    case '1':  applySpeedStop(0); break;
+    case '2':  applySpeedStop(1); break;
+    case '3':  applySpeedStop(2); break;
+    case '4':  applySpeedStop(3); break;
+    case '5':  applySpeedStop(4); break;
+    case '6':  applySpeedStop(5); break;
+    case '7':  applySpeedStop(6); break;
+    case '+': case '=': setAgentDelta(agentDelta + 1); break;
+    case '-': case '_': setAgentDelta(agentDelta - 1); break;
+    case 'Enter': applyAgentDelta(); break;
+  }
+});
+
+applyDifficulty('normal');
+initAgents(S.numAgents);
+addLog('9-hour training simulation ready. MODE: NORMAL (Occupancy 70–90%)', 'green');
+addLog('Keys: SPACE=Pause/Resume  1–7=Speed  +/-=Staffing change (-5 to +5)  Enter=Apply', 'green');
+renderDeltaUI();
+applySpeedStop(SPEED_STOPS.indexOf(GAME_RULES.defaultSpeed));
+renderMetrics();
+renderClock();
+renderAlert();
+renderResultPanel();
+renderForecastChart();
+</script>
+</body>
+</html>
