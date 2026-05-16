@@ -13,7 +13,7 @@ It models a 9-hour contact center day with changing demand, staffing lead time, 
 
 Open the simulator here:
 
-https://kaoru-ota.github.io/cc-defender/
+https://kaoru-ota.github.io/cc-wfm-simulator/
 
 No sign-up or installation is required.
 
