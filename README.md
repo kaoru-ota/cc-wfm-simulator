@@ -17,6 +17,10 @@ https://kaoru-ota.github.io/cc-wfm-simulator/
 
 No sign-up or installation is required.
 
+## Need a Hint?
+
+If you do not reach the training objective after a few attempts, review the [winning strategy walkthrough](winning_strategy.gif) and compare it with your own decisions.
+
 ## GitHub Repository Setup
 
 Suggested repository description:
